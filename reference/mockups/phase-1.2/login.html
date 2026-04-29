@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Goa · Sign in</title>
+<link rel="stylesheet" href="globals.css" />
+<style>
+  body { background: oklch(94% 0.005 240); margin: 0; }
+  [data-goa-theme="dark"] body, body[data-host-dark] { background: oklch(8% 0.010 250); }
+  .page-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 14px 24px;
+    background: color-mix(in oklab, var(--goa-bg) 88%, transparent);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--goa-line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--goa-fg); }
+  .page-header p  { font-size: 12px; color: var(--goa-fg-3); margin: 2px 0 0; max-width: 760px; }
+  .canvas-wrap { padding-top: 64px; height: 100vh; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/tokens.jsx"></script>
+<script type="text/babel" src="components/wallpapers.jsx"></script>
+<script type="text/babel" src="components/chrome.jsx"></script>
+<script type="text/babel" src="components/feedback-bot.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+const LOGIN_GOLD = window.BC_GOLD || 'oklch(75% 0.135 75)';
+
+/* ─── Microsoft logo (4-square mark) ─────────────────────────────────────── */
+function MsLogo({ size = 18 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" style={{ display: 'block' }}>
+      <rect x="1"  y="1"  width="10" height="10" fill="#F25022" />
+      <rect x="13" y="1"  width="10" height="10" fill="#7FBA00" />
+      <rect x="1"  y="13" width="10" height="10" fill="#00A4EF" />
+      <rect x="13" y="13" width="10" height="10" fill="#FFB900" />
+    </svg>
+  );
+}
+
+/* ─── ShapeShifter wordmark ──────────────────────────────────────────────
+   Drewlo knot mark + "ShapeShifter" wordmark. The real ShapeShifter logo
+   file (when delivered) drops into the wordmark text slot; the knot stays.
+   ───────────────────────────────────────────────────────────────────────── */
+function SsWordmark({ dark = false }) {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 12,
+    }}>
+      {/* Drewlo knot — brand mark */}
+      <div style={{
+        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+        background: '#0b0b0d',
+        backgroundImage: 'url("assets/drewlo-knot-gold-on-black.png")',
+        backgroundSize: '74%', backgroundPosition: 'center', backgroundRepeat: 'no-repeat',
+        boxShadow: 'inset 0 0 0 1px rgba(207, 161, 76, 0.5)',
+      }} />
+      <span style={{
+        fontSize: 22, fontWeight: 700, letterSpacing: '-0.025em',
+        color: dark ? 'oklch(94% 0.005 240)' : 'oklch(18% 0.012 250)',
+      }}>ShapeShifter</span>
+    </div>
+  );
+}
+
+/* ─── iPad / desktop login pane ─────────────────────────────────────────── */
+function LoginPad({ dark = false, expandEmail = false }) {
+  // Background: same gradient family as index.html, plus a faint gold radial wash
+  // that hints at the brand without being loud.
+  const bg = dark
+    ? `radial-gradient(circle at 30% 20%, oklch(20% 0.035 250 / 0.6) 0%, transparent 55%),
+       radial-gradient(circle at 80% 80%, oklch(22% 0.04 75 / 0.35) 0%, transparent 50%),
+       linear-gradient(180deg, oklch(10% 0.012 250) 0%, oklch(7% 0.010 255) 100%)`
+    : `radial-gradient(circle at 30% 20%, oklch(94% 0.012 250 / 0.85) 0%, transparent 55%),
+       radial-gradient(circle at 80% 80%, oklch(94% 0.04 80 / 0.35) 0%, transparent 50%),
+       linear-gradient(180deg, oklch(96% 0.005 240) 0%, oklch(92% 0.005 250) 100%)`;
+
+  const surfaceBg = dark ? 'oklch(13% 0.015 250 / 0.78)' : 'rgba(255,255,255, 0.72)';
+  const surfaceBorder = dark ? 'oklch(28% 0.015 250)' : 'oklch(90% 0.005 240)';
+  const fg  = dark ? 'oklch(94% 0.005 240)' : 'oklch(18% 0.012 250)';
+  const fg2 = dark ? 'oklch(70% 0.012 250)' : 'oklch(38% 0.012 250)';
+  const fg3 = dark ? 'oklch(55% 0.012 250)' : 'oklch(50% 0.012 250)';
+  const inputBg = dark ? 'oklch(18% 0.012 250)' : 'rgba(255,255,255, 0.6)';
+  const inputBorder = dark ? 'oklch(30% 0.012 250)' : 'oklch(86% 0.005 240)';
+
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      background: bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '48px 32px',
+      position: 'relative', overflow: 'hidden',
+      fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
+    }}>
+      {/* Hairline grid texture, very faint */}
+      <div style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        backgroundImage:
+          `linear-gradient(${dark ? 'rgba(255,255,255,0.025)' : 'rgba(8,12,28,0.02)'} 1px, transparent 1px),
+           linear-gradient(90deg, ${dark ? 'rgba(255,255,255,0.025)' : 'rgba(8,12,28,0.02)'} 1px, transparent 1px)`,
+        backgroundSize: '32px 32px',
+      }} />
+
+      {/* Centered card */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: 420, maxWidth: '100%',
+        padding: '36px 36px 28px',
+        borderRadius: 22,
+        background: surfaceBg,
+        backdropFilter: 'blur(28px) saturate(1.2)',
+        WebkitBackdropFilter: 'blur(28px) saturate(1.2)',
+        border: '1px solid ' + surfaceBorder,
+        boxShadow: dark
+          ? '0 24px 72px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.04)'
+          : '0 24px 72px rgba(8,12,28,0.10), inset 0 0 0 1px rgba(255,255,255,0.6)',
+      }}>
+        {/* Wordmark */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 26 }}>
+          <SsWordmark dark={dark} />
+        </div>
+
+        {/* Heading */}
+        <h1 style={{
+          fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em',
+          margin: '0 0 4px', color: fg, textAlign: 'center',
+        }}>Welcome back</h1>
+        <p style={{
+          fontSize: 13, color: fg3, margin: '0 0 24px', textAlign: 'center',
+        }}>Sign in to continue to your workspace.</p>
+
+        {/* Microsoft — primary */}
+        <button style={{
+          all: 'unset', cursor: 'pointer', boxSizing: 'border-box',
+          width: '100%', padding: '12px 14px',
+          borderRadius: 11,
+          background: dark ? '#1a1a1a' : '#2F2F2F',
+          color: '#fff',
+          fontSize: 14, fontWeight: 600, letterSpacing: '-0.005em',
+          display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 12,
+          border: '1px solid ' + (dark ? '#2a2a2a' : '#2F2F2F'),
+          marginBottom: 8,
+          fontFamily: '"Segoe UI", "Segoe UI Web", -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+        }}>
+          <MsLogo size={18} />
+          <span style={{ flex: 1 }}>Continue with Microsoft</span>
+        </button>
+        <div style={{ fontSize: 11, color: fg3, marginBottom: 18, textAlign: 'center' }}>
+          Recommended for employees
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          marginBottom: 16,
+        }}>
+          <div style={{ flex: 1, height: 1, background: inputBorder }} />
+          <span style={{ fontSize: 11, color: fg3, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>or</span>
+          <div style={{ flex: 1, height: 1, background: inputBorder }} />
+        </div>
+
+        {/* Email — collapsed by default */}
+        {!expandEmail ? (
+          <button style={{
+            all: 'unset', cursor: 'pointer', boxSizing: 'border-box',
+            width: '100%', padding: '11px 14px',
+            borderRadius: 11,
+            background: 'transparent',
+            color: fg2,
+            fontSize: 13.5, fontWeight: 600,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            border: '1px dashed ' + inputBorder,
+          }}>
+            <GIcon name="mail" size={14} />
+            <span>Sign in with email &amp; password</span>
+          </button>
+        ) : (
+          <div>
+            <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: fg2, marginBottom: 5 }}>Email</label>
+            <div style={{
+              padding: '10px 12px', borderRadius: 10,
+              background: inputBg, border: '1px solid ' + inputBorder,
+              fontSize: 13.5, color: fg, marginBottom: 11,
+              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            }}>maria@drewlo.com</div>
+
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 600, color: fg2, marginBottom: 5 }}>
+              <span>Password</span>
+              <a href="#" style={{ fontSize: 11, color: LOGIN_GOLD, textDecoration: 'none', fontWeight: 600 }}>Forgot?</a>
+            </label>
+            <div style={{
+              padding: '10px 12px', borderRadius: 10,
+              background: inputBg, border: '1px solid ' + inputBorder,
+              fontSize: 13.5, color: fg, marginBottom: 14,
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            }}>
+              <span style={{ flex: 1, letterSpacing: '0.18em' }}>•••••••••••</span>
+              <GIcon name="eye" size={13} style={{ color: fg3 }} />
+            </div>
+
+            <button style={{
+              all: 'unset', cursor: 'pointer', boxSizing: 'border-box',
+              width: '100%', padding: '11px 14px',
+              borderRadius: 11,
+              background: fg, color: dark ? 'oklch(13% 0.012 250)' : 'oklch(96% 0.005 240)',
+              fontSize: 14, fontWeight: 700, letterSpacing: '-0.005em',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>Sign in</button>
+          </div>
+        )}
+
+        {/* Bottom links */}
+        <div style={{
+          marginTop: 20, paddingTop: 16,
+          borderTop: '1px solid ' + inputBorder,
+          fontSize: 11.5, color: fg3, textAlign: 'center',
+        }}>
+          New to ShapeShifter? <a href="#" style={{ color: LOGIN_GOLD, textDecoration: 'none', fontWeight: 600 }}>Request an invitation</a>
+        </div>
+      </div>
+
+      {/* Footer chip */}
+      <div style={{
+        position: 'absolute', bottom: 18, left: 0, right: 0, zIndex: 1,
+        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8,
+        fontSize: 11, color: fg3,
+      }}>
+        <span>ShapeShifter — internal preview</span>
+        <span style={{
+          padding: '1px 7px', borderRadius: 999,
+          background: dark ? 'oklch(20% 0.012 250)' : 'rgba(255,255,255,0.7)',
+          border: '1px solid ' + inputBorder,
+          fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+          fontSize: 10, fontWeight: 700, color: fg2,
+        }}>v0.9 · RC1</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── iPhone login pane ─────────────────────────────────────────────────── */
+function LoginPhone({ dark = false }) {
+  const bg = dark
+    ? `radial-gradient(circle at 30% 15%, oklch(22% 0.04 75 / 0.45) 0%, transparent 60%),
+       linear-gradient(180deg, oklch(10% 0.012 250) 0%, oklch(7% 0.010 255) 100%)`
+    : `radial-gradient(circle at 30% 15%, oklch(94% 0.04 80 / 0.45) 0%, transparent 60%),
+       linear-gradient(180deg, oklch(96% 0.005 240) 0%, oklch(92% 0.005 250) 100%)`;
+
+  const fg  = dark ? 'oklch(94% 0.005 240)' : 'oklch(18% 0.012 250)';
+  const fg2 = dark ? 'oklch(70% 0.012 250)' : 'oklch(38% 0.012 250)';
+  const fg3 = dark ? 'oklch(55% 0.012 250)' : 'oklch(50% 0.012 250)';
+  const border = dark ? 'oklch(28% 0.015 250)' : 'oklch(86% 0.005 240)';
+
+  return (
+    <div style={{
+      width: '100%', height: '100%',
+      background: bg,
+      display: 'flex', flexDirection: 'column',
+      padding: '60px 22px 32px',
+      position: 'relative', overflow: 'hidden',
+      fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif',
+    }}>
+      {/* Status bar fake */}
+      <div style={{
+        position: 'absolute', top: 14, left: 24, right: 24,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        fontSize: 13, fontWeight: 700, color: fg,
+      }}>
+        <span>9:41</span>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          <GIcon name="signal" size={12} />
+          <GIcon name="wifi" size={12} />
+          <GIcon name="battery-full" size={14} />
+        </div>
+      </div>
+
+      {/* Wordmark — top */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 18, marginBottom: 38 }}>
+        <SsWordmark dark={dark} />
+      </div>
+
+      {/* Heading */}
+      <h1 style={{
+        fontSize: 28, fontWeight: 700, letterSpacing: '-0.025em',
+        margin: '0 0 4px', color: fg, textAlign: 'center',
+      }}>Welcome back</h1>
+      <p style={{
+        fontSize: 13.5, color: fg3, margin: '0 0 28px', textAlign: 'center',
+      }}>Sign in to continue.</p>
+
+      {/* Microsoft — primary */}
+      <button style={{
+        all: 'unset', cursor: 'pointer', boxSizing: 'border-box',
+        width: '100%', padding: '14px 16px',
+        borderRadius: 13,
+        background: dark ? '#1a1a1a' : '#2F2F2F', color: '#fff',
+        fontSize: 14.5, fontWeight: 600,
+        display: 'flex', alignItems: 'center', gap: 14,
+        marginBottom: 8,
+      }}>
+        <MsLogo size={20} />
+        <span style={{ flex: 1 }}>Continue with Microsoft</span>
+      </button>
+      <div style={{ fontSize: 11, color: fg3, marginBottom: 18, textAlign: 'center' }}>
+        Recommended for employees
+      </div>
+
+      {/* Email collapsed */}
+      <button style={{
+        all: 'unset', cursor: 'pointer', boxSizing: 'border-box',
+        width: '100%', padding: '13px 16px',
+        borderRadius: 13,
+        background: 'transparent',
+        color: fg2,
+        fontSize: 13.5, fontWeight: 600,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        border: '1px dashed ' + border,
+      }}>
+        <GIcon name="mail" size={14} />
+        <span>Email &amp; password</span>
+      </button>
+
+      <div style={{ flex: 1 }} />
+
+      {/* Footer */}
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+        fontSize: 11, color: fg3,
+      }}>
+        <span>New here? <a href="#" style={{ color: LOGIN_GOLD, textDecoration: 'none', fontWeight: 600 }}>Request access</a></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span>ShapeShifter — internal preview</span>
+          <span style={{
+            padding: '1px 7px', borderRadius: 999,
+            background: dark ? 'oklch(20% 0.012 250)' : 'rgba(255,255,255,0.7)',
+            border: '1px solid ' + border,
+            fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+            fontSize: 10, fontWeight: 700, color: fg2,
+          }}>v0.9 · RC1</span>
+        </div>
+      </div>
+
+      {/* Home indicator */}
+      <div style={{
+        width: 134, height: 5, borderRadius: 3,
+        background: fg, opacity: 0.85,
+        margin: '12px auto 0',
+      }} />
+    </div>
+  );
+}
+
+/* ─── App ────────────────────────────────────────────────────────────────── */
+function App() {
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <h1>Login · the entry point</h1>
+          <p>Surface 10 — what users see before Springboard. MSAL primary (Drewlo employees), Google secondary, email fallback. Liquid Glass card on the same gradient family as the surface index. Real ShapeShifter logo drops into the wordmark slot in a later phase.</p>
+        </div>
+        <GoaWordmark size={14} />
+      </header>
+
+      <div className="canvas-wrap" data-screen-label="Login">
+        <DesignCanvas>
+
+          <DCSection id="ipad" title="iPad / desktop · centered Liquid Glass card" subtitle="Same blurred-glass surface family as the rest of Goa, on a gold-tinted radial wash. MSAL is the primary CTA; Google + email-and-password sit underneath. Email is collapsed by default to keep the card quiet.">
+
+            <DCArtboard id="pad-light" label="01 · iPad · light · default (email collapsed)" width={1180} height={820}>
+              <LoginPad dark={false} expandEmail={false} />
+            </DCArtboard>
+
+            <DCArtboard id="pad-dark" label="02 · iPad · dark" width={1180} height={820}>
+              <LoginPad dark={true} expandEmail={false} />
+            </DCArtboard>
+
+            <DCArtboard id="pad-email" label="03 · iPad · email expanded" width={1180} height={820}>
+              <LoginPad dark={false} expandEmail={true} />
+            </DCArtboard>
+
+          </DCSection>
+
+          <DCSection id="iphone" title="iPhone · stacked card" subtitle="Same hierarchy, full-width buttons. Email collapsed; expands inline.">
+
+            <DCArtboard id="phone-light" label="04 · iPhone · light" width={392} height={820}>
+              <LoginPhone dark={false} />
+            </DCArtboard>
+
+            <DCArtboard id="phone-dark" label="05 · iPhone · dark" width={392} height={820}>
+              <LoginPhone dark={true} />
+            </DCArtboard>
+
+          </DCSection>
+
+        </DesignCanvas>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

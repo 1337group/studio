@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Goa · Ask Goa (universal FAB)</title>
+<link rel="stylesheet" href="globals.css" />
+<style>
+  body { background: oklch(94% 0.005 240); margin: 0; }
+  [data-goa-theme="dark"] body, body[data-host-dark] { background: oklch(8% 0.010 250); }
+  .page-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 14px 24px;
+    background: color-mix(in oklab, var(--goa-bg) 88%, transparent);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--goa-line);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin: 0; color: var(--goa-fg); }
+  .page-header p  { font-size: 12px; color: var(--goa-fg-3); margin: 2px 0 0; max-width: 760px; }
+  .canvas-wrap { padding-top: 64px; height: 100vh; box-sizing: border-box; }
+
+  /* Faded surface backdrop so the panel reads as floating over real UI */
+  .ag-stage {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 20% 18%, color-mix(in oklab, var(--goa-accent) 22%, transparent), transparent 55%),
+      radial-gradient(circle at 78% 80%, color-mix(in oklab, oklch(75% 0.135 75) 18%, transparent), transparent 60%),
+      var(--goa-bg);
+    overflow: hidden;
+  }
+  .ag-stage::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 0%, color-mix(in oklab, var(--goa-bg) 35%, transparent) 100%);
+    pointer-events: none;
+  }
+  .ag-stage > .surface-hint {
+    position: absolute; top: 24px; left: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .ag-row { height: 14px; border-radius: 4px; background: var(--goa-line); }
+  .ag-row.t   { width: 30%; height: 18px; background: var(--goa-fg-3); opacity: 0.35; }
+  .ag-row.s   { width: 60%; }
+  .ag-row.s2  { width: 45%; }
+  .ag-card-grid {
+    margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  }
+  .ag-card { height: 90px; border-radius: 14px; background: var(--goa-surface-2); border: 1px solid var(--goa-line); }
+  .ag-stage-label {
+    position: absolute; top: 18px; left: 22px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--goa-fg-3); opacity: 0.7;
+  }
+  .ag-state-tag {
+    position: absolute; top: 18px; right: 22px;
+    padding: 3px 10px; border-radius: 999px;
+    background: var(--goa-fg); color: var(--goa-bg);
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="components/tokens.jsx"></script>
+<script type="text/babel" src="components/wallpapers.jsx"></script>
+<script type="text/babel" src="components/chrome.jsx"></script>
+<script type="text/babel" src="components/ask-goa.jsx"></script>
+<script type="text/babel" src="components/design-canvas.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// Tiny "we're on a surface" stage — a vague hint of content beneath the panel,
+// so the FAB + popover read as floating over real UI without us needing to
+// re-mount the actual surface in every artboard.
+function AGStage({ label, state, surface, route, pageContext, initialOpen = true, bottomOffset = 20 }) {
+  const labelMap = {
+    empty:    'First open',
+    qa:       'Q&A · with citations',
+    tool:     'Page action · awaiting confirm',
+    feedback: 'Feedback mode',
+    tutorial: 'Tutorial walkthrough',
+    closed:   'FAB · closed',
+  };
+  return (
+    <div className="ag-stage">
+      <div className="ag-stage-label">{label}</div>
+      <div className="ag-state-tag">{labelMap[state] || state}</div>
+      <div className="surface-hint">
+        <div className="ag-row t" />
+        <div className="ag-row s" />
+        <div className="ag-row s2" />
+        <div className="ag-card-grid">
+          <div className="ag-card" /><div className="ag-card" /><div className="ag-card" />
+          <div className="ag-card" /><div className="ag-card" /><div className="ag-card" />
+        </div>
+      </div>
+      <AskGoa
+        surface={surface} route={route} pageContext={pageContext}
+        initialState={state} initialOpen={initialOpen}
+        bottomOffset={bottomOffset}
+      />
+    </div>
+  );
+}
+
+function App() {
+  const [theme, setTheme] = useState('light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-goa-theme', theme);
+    if (typeof applyGoaWallpaper === 'function') applyGoaWallpaper('coast', theme === 'dark');
+  }, [theme]);
+
+  // Page contexts mocked per surface — what each surface's usePageContext() would emit.
+  const ctxKnowledge = {
+    selection: { kind: 'corpus', id: 'cor_renewals', name: 'Renewals Knowledge' },
+    visible: { 'corpora.count': 12, 'sort': 'recent', 'filter': 'mine' },
+  };
+  const ctxFiles = {
+    selection: { kind: 'file', id: 'fil_8e21c4', name: 'board-pack.pdf' },
+    visible: { 'folder': '/Q4-2025', 'view': 'split', 'sort': 'modified' },
+  };
+  const ctxNotes = {
+    selection: { kind: 'note', id: 'nte_share-faq', name: 'Sharing FAQ draft' },
+    visible: { 'words': 1240, 'collaborators': 2 },
+  };
+  const ctxLibrary = {
+    selection: { kind: 'agent', id: 'agt_concierge', name: 'Concierge' },
+    visible: { 'tab': 'agents', 'view': 'A-Z' },
+  };
+
+  return (
+    <>
+      <header className="page-header">
+        <div>
+          <h1>Ask Goa — universal FAB</h1>
+          <p>One floating action button on every surface. Replaces the feedback-only bot. Page-aware Q&A · tutorials · feedback · proposed page actions (Concierge agent) — all in one chat thread. <b>Per HANDOFF Appendix A.1</b>: thin shell over <code>/chat/*</code>, page-context attached via <code>usePageContext()</code>, action tools scoped to the current surface.</p>
+        </div>
+        <GoaWordmark size={14} />
+      </header>
+
+      <div className="canvas-wrap" data-screen-label="Ask Goa">
+        <DesignCanvas>
+          <DCSection
+            id="states"
+            title="States — single panel, four jobs"
+            subtitle="The same chat surface handles Q&A, tutorial, feedback, and page-action authorization. Intent classified by the model — chips below the input are discoverability, not tabs."
+          >
+            <DCArtboard id="closed" label="01 · Closed FAB · awaiting" width={460} height={640}>
+              <AGStage
+                label="Springboard"
+                state="closed" initialOpen={false}
+                surface="Springboard" route="/"
+                pageContext={{}}
+              />
+            </DCArtboard>
+
+            <DCArtboard id="empty" label="02 · First open · greeting" width={460} height={640}>
+              <AGStage
+                label="Knowledge"
+                state="empty"
+                surface="Knowledge" route="/knowledge"
+                pageContext={ctxKnowledge}
+              />
+            </DCArtboard>
+
+            <DCArtboard id="qa" label="03 · Q&A with citations" width={460} height={640}>
+              <AGStage
+                label="Knowledge · /knowledge/renewals"
+                state="qa"
+                surface="Knowledge" route="/knowledge/renewals"
+                pageContext={ctxKnowledge}
+              />
+            </DCArtboard>
+
+            <DCArtboard id="tool" label="04 · Page action · confirm to run" width={460} height={640}>
+              <AGStage
+                label="Files · board-pack.pdf focused"
+                state="tool"
+                surface="Files" route="/files/Q4-2025"
+                pageContext={ctxFiles}
+              />
+            </DCArtboard>
+
+            <DCArtboard id="feedback" label="05 · Feedback mode" width={460} height={640}>
+              <AGStage
+                label="Files · iPad split-view"
+                state="feedback"
+                surface="Files" route="/files/Q4-2025"
+                pageContext={ctxFiles}
+              />
+            </DCArtboard>
+
+            <DCArtboard id="tutorial" label="06 · Tutorial walkthrough" width={460} height={640}>
+              <AGStage
+                label="Notes · sharing draft"
+                state="tutorial"
+                surface="Notes" route="/notes/share-faq"
+                pageContext={ctxNotes}
+              />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="surfaces"
+            title="Per-surface page context"
+            subtitle="Each surface registers a usePageContext() provider. The shell collects from all mounted providers and adds a <page-context> block to the chat's system prompt. Expand the 'Goa sees' strip in any panel to see what's attached."
+          >
+            <DCArtboard id="ctx-knowledge" label="On Knowledge · corpus selected" width={460} height={640}>
+              <AGStage
+                label="Knowledge"
+                state="empty"
+                surface="Knowledge" route="/knowledge/renewals"
+                pageContext={ctxKnowledge}
+              />
+            </DCArtboard>
+            <DCArtboard id="ctx-files" label="On Files · file focused" width={460} height={640}>
+              <AGStage
+                label="Files"
+                state="empty"
+                surface="Files" route="/files/Q4-2025"
+                pageContext={ctxFiles}
+              />
+            </DCArtboard>
+            <DCArtboard id="ctx-library" label="On My Library · agent focused" width={460} height={640}>
+              <AGStage
+                label="My Library"
+                state="empty"
+                surface="My Library" route="/library/agents"
+                pageContext={ctxLibrary}
+              />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection
+            id="phone"
+            title="Phone · raised above the dock"
+            subtitle="On phone shells the FAB lifts to clear the bottom dock (bottomOffset=110). Same panel — just sits higher and uses the full content width."
+          >
+            <DCArtboard id="phone-closed" label="iPhone · closed FAB" width={392} height={780}>
+              <AGStage
+                label="My Library · iPhone"
+                state="closed" initialOpen={false}
+                surface="My Library" route="/library"
+                pageContext={ctxLibrary}
+                bottomOffset={110}
+              />
+            </DCArtboard>
+            <DCArtboard id="phone-qa" label="iPhone · Q&A" width={392} height={780}>
+              <AGStage
+                label="Knowledge · iPhone"
+                state="qa"
+                surface="Knowledge" route="/knowledge"
+                pageContext={ctxKnowledge}
+                bottomOffset={110}
+              />
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

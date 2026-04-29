@@ -1,7 +1,5 @@
 # Goa — Design System
 
-> Category: Enterprise · Productivity
-
 **Canonical source of truth for the Goa visual language (RC1-P1).**
 This file is a verbatim extraction from the working Goa canvas. The
 sources of truth in code are `globals.css`, `components/tokens.jsx`,
@@ -469,33 +467,3 @@ extraction and overwrite this file. Studio (and any other downstream
 project) mirrors the canvas, never the other way around.
 
 — end —
-
----
-
-## Studio adapter — not part of Goa canon
-
-This appendix exists so Studio's daemon design-systems registry
-(`daemon/design-systems.js`) can render the Goa entry in the picker.
-Goa canon itself uses only oklch values — but the picker's swatch
-extractor expects `#hex` codes via the regex
-`-\s*\*\*Name\*\*\s*\(\`#xxxxxx\`\)`. Without these, the picker shows
-the system as colorless.
-
-When Goa canon is re-extracted (per §15 above), keep this footer; do
-not let the verbatim overwrite drop it. Update the hex approximations
-only if Goa's canonical oklch values change.
-
-### Picker swatches (hex approximations of Goa Light tokens)
-
-Names chosen so `daemon/design-systems.js` `extractSwatches` picks
-these specifically: `Page Background` beats Section 12's brand-mark
-CSS recipe at the `'page background'` hint level; `Brand Accent` hits
-the `'accent'` hint without the em-dash issue (the regex character
-class doesn't accept U+2014).
-
-- **Page Background** (`#fafafd`) — surface bed (`oklch(98.4% 0.003 230)`)
-- **Border** (`#e2e5e9`) — separator line (`oklch(91% 0.005 240)`)
-- **Foreground** (`#22252b`) — primary text (`oklch(18% 0.012 250)`)
-- **Brand Accent** (`#3590c5`) — system accent, Goa Sea (`oklch(62% 0.158 232)`)
-
-— end of Studio adapter —
