@@ -263,7 +263,7 @@ export const STD_LAUNCH_STEPS = [
     state: 'pending',
     hint: 'After 7 days in beta',
     detail:
-      "Auto-promotes after 7 days with no failed runs and no negative feedback. You can promote earlier with Allan's approval.",
+      "Auto-promotes after 7 days with no failed runs and no negative feedback. You can promote earlier with Isaac's approval.",
   },
 ] as const;
 

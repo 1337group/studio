@@ -134,7 +134,7 @@ export function StudioCanvas() {
             }}
           >
             Two on-ramps: <b>fork an existing app</b> (browse → propose changes, the meat) or{' '}
-            <b>build from scratch</b> (your own Docker workspace, Hive backend wired). Submit fork → Allan reviews →
+            <b>build from scratch</b> (your own Docker workspace, Hive backend wired). Submit fork → Isaac reviews →
             ship to dev → beta → prod. Goa is the coach — asks about the problem, then writes the code with you.
           </p>
         </div>
@@ -173,7 +173,7 @@ export function StudioCanvas() {
       <Section
         index="04"
         title="Launch · Dev → Beta → Prod"
-        subtitle="Once a from-scratch app is ready, walk it through three lifecycle stages. Pick beta testers from Library; Hive env vars auto-injected; Allan still gates the production cutover."
+        subtitle="Once a from-scratch app is ready, walk it through three lifecycle stages. Pick beta testers from Library; Hive env vars auto-injected; Isaac still gates the production cutover."
         artboardLabel="04 · Studio · Launch stepper"
         artboardSize={{ w: 1240, h: 1080 }}
       >
@@ -182,9 +182,9 @@ export function StudioCanvas() {
 
       <Section
         index="05"
-        title="Allan's review queue"
+        title="Isaac's review queue"
         subtitle="Owner-only. PRs from the workspace land here. Diff + tests + affected-user count + approve / request-changes in one pane. Same chrome as Studio so the loop stays cohesive."
-        artboardLabel="05 · Studio · Review queue (Allan's view)"
+        artboardLabel="05 · Studio · Review queue (Isaac's view)"
         artboardSize={{ w: 1480, h: 920 }}
       >
         <StdReview />

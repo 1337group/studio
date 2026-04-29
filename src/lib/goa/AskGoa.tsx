@@ -355,7 +355,7 @@ function Greeting({ surface }: { surface: string }) {
       >
         I'm Goa's concierge. When this is wired up, I'll answer questions
         about <b>{surface}</b>, run page actions for you, or take feedback to
-        Allan.
+        Isaac.
       </div>
     </div>
   );

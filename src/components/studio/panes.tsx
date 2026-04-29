@@ -7,7 +7,7 @@
 //   StdPropose   — propose changes (forked, hero)
 //   StdScratch   — build from scratch (empty canvas)
 //   StdLaunch    — Dev → Beta → Prod stepper
-//   StdReview    — Allan's review queue
+//   StdReview    — Isaac's review queue
 //
 // D-21: each surface ships with mock content (Maria, Renewals desk, etc.) for
 // visual P1.2 approval. Real data wiring lands in P1.3+; at that point each
