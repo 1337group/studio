@@ -18,8 +18,8 @@
 #
 # WHAT IT DOES
 #   1. ./scripts/backup-studio-od.sh        ← snapshot user data
-#   2. pnpm build                           ← Vite produces dist/
-#   3. rsync dist/ → hive:/opt/platform-apps/studio/dist/
+#   2. pnpm build                           ← Next.js produces out/ (output: 'export')
+#   3. rsync out/ → hive:/opt/platform-apps/studio/out/
 #   4. rsync daemon/ → hive:/opt/platform-apps/studio/daemon/
 #   5. rsync public/ → hive:/opt/platform-apps/studio/public/
 #   6. systemctl restart platform-app@studio
@@ -48,10 +48,10 @@ fi
 echo "→ [2/7] Building Studio frontend"
 pnpm build
 
-echo "→ [3/7] Staging dist/ on hive"
+echo "→ [3/7] Staging out/ on hive (Next.js static export — was dist/ under Vite)"
 rsync -a --delete \
   --exclude='.od' --exclude='.od/**' \
-  dist/ "${HOST}:/tmp/studio-dist/"
+  out/ "${HOST}:/tmp/studio-out/"
 
 echo "→ [4/7] Staging daemon/ on hive"
 rsync -a \
@@ -65,7 +65,7 @@ rsync -a \
 
 echo "→ [6/7] Promoting + restart on hive"
 "$SSH" hive "
-  sudo rsync -a --delete --exclude='.od' --exclude='.od/**' /tmp/studio-dist/   ${APP_DIR}/dist/   && \
+  sudo rsync -a --delete --exclude='.od' --exclude='.od/**' /tmp/studio-out/    ${APP_DIR}/out/    && \
   sudo rsync -a            --exclude='.od' --exclude='.od/**' /tmp/studio-daemon/ ${APP_DIR}/daemon/ && \
   sudo rsync -a            --exclude='.od' --exclude='.od/**' /tmp/studio-public/ ${APP_DIR}/public/ && \
   sudo systemctl restart platform-app@studio && \
