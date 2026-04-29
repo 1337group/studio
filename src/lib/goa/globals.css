@@ -4,10 +4,11 @@
 */
 
 /* MERGE-NOTE: studio — was `@import "https://unpkg.com/lucide-static@0.452.0/font/lucide.css";`
-   on the Goa canvas. Self-hosted under `/vendor/lucide/` for production
-   resilience (no unpkg runtime dependency). When Goa canon re-issues
-   globals.css, keep this swap. */
-@import "/vendor/lucide/lucide.css";
+   on the Goa canvas, then bumped to `@import "/vendor/lucide/lucide.css"` for
+   the Vite era. Next.js (Turbopack) refuses server-relative @import in CSS at
+   build time. The lucide font is now loaded via a runtime <link rel="stylesheet">
+   in app/layout.tsx (which Turbopack does not parse). lucide.css + its font
+   files still live at public/vendor/lucide/ and are served from there. */
 
 :root {
   /* === Type === */

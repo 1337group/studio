@@ -1,3 +1,5 @@
+'use client';
+
 import {
   createContext,
   useCallback,
@@ -8,6 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { en } from './locales/en';
+import { ptBR } from './locales/pt-BR';
 import { zhCN } from './locales/zh-CN';
 import { LOCALES, type Dict, type Locale } from './types';
 // MERGE-NOTE: studio — Drewlo brand-string overlay on upstream locales.
@@ -23,8 +26,9 @@ export type { Locale } from './types';
 type DictKey = keyof Dict;
 
 const DICTS: Record<Locale, Dict> = {
-  'en':    { ...en,   ...(drewloOverrides.en   ?? {}) },
+  'en':    { ...en,   ...(drewloOverrides.en      ?? {}) },
   'zh-CN': { ...zhCN, ...(drewloOverrides['zh-CN'] ?? {}) },
+  'pt-BR': { ...ptBR, ...(drewloOverrides['pt-BR'] ?? {}) },
 };
 
 const LS_KEY = 'open-design:locale';
