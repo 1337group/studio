@@ -291,6 +291,27 @@ export const AGENT_DEFS = [
     promptViaStdin: true,
     streamFormat: 'plain',
   },
+  // MERGE-NOTE: studio — Drewlo addition. Server-side Anthropic SDK agent.
+  // Bypasses the child_process.spawn path entirely — daemon/server.js
+  // detects `bin === null` + `streamFormat === 'sdk-direct'` and routes
+  // /api/chat through daemon/anthropic-server.js using the SDK with
+  // `process.env.ANTHROPIC_API_KEY`. Available iff that env is set.
+  {
+    id: 'anthropic-server',
+    name: 'Anthropic API (server)',
+    bin: null,
+    serverReady: () => Boolean(process.env.ANTHROPIC_API_KEY),
+    fallbackModels: [
+      DEFAULT_MODEL_OPTION,
+      { id: 'claude-sonnet-latest', label: 'claude-sonnet-latest' },
+      { id: 'claude-opus-latest', label: 'claude-opus-latest' },
+      { id: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5' },
+      { id: 'claude-opus-4-5', label: 'claude-opus-4-5' },
+    ],
+    // No buildArgs — never spawned. Server.js routes this agent to
+    // daemon/anthropic-server.js's streamServerSide().
+    streamFormat: 'sdk-direct',
+  },
   {
     id: 'copilot',
     name: 'GitHub Copilot CLI',
@@ -377,6 +398,19 @@ async function fetchModels(def, resolvedBin) {
 }
 
 async function probe(def) {
+  // MERGE-NOTE: studio — server-side agents have no PATH bin. Probe their
+  // env-readiness instead and short-circuit the version/help/list-models
+  // dance below.
+  if (def.bin === null) {
+    const ready = typeof def.serverReady === 'function' ? Boolean(def.serverReady()) : true;
+    return {
+      ...stripFns(def),
+      models: def.fallbackModels ?? [DEFAULT_MODEL_OPTION],
+      available: ready,
+      path: null,
+      version: null,
+    };
+  }
   const resolved = resolveOnPath(def.bin);
   if (!resolved) {
     return {
@@ -426,7 +460,8 @@ function stripFns(def) {
   // populated separately by `fetchModels`, so we strip the static
   // `fallbackModels` slot here too. `helpArgs` / `capabilityFlags` are
   // probe-only metadata and shouldn't bleed into the API response either.
-  const { buildArgs, listModels, fallbackModels, helpArgs, capabilityFlags, ...rest } = def;
+  // MERGE-NOTE: studio — also strip `serverReady` (closure on env).
+  const { buildArgs, listModels, fallbackModels, helpArgs, capabilityFlags, serverReady, ...rest } = def;
   return rest;
 }
 

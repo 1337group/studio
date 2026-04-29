@@ -21,3 +21,8 @@ tsconfig.tsbuildinfo
 
 # Commander task scratchpad; keep local task notes out of git by default.
 .task/
+
+# MERGE-NOTE: studio — Drewlo's GSD planning artifacts. Workspace-private,
+# upstream merge-clean. Lives only on origin (1337group/studio); never
+# pushed to upstream (nexu-io/open-design).
+.planning/

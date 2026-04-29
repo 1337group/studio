@@ -17,6 +17,9 @@ import { listSkills } from './skills.js';
 import { listDesignSystems, readDesignSystem } from './design-systems.js';
 import { createClaudeStreamHandler } from './claude-stream.js';
 import { createCopilotStreamHandler } from './copilot-stream.js';
+// MERGE-NOTE: studio — Drewlo additions
+import { createAuthShim } from './auth-shim.js';
+import { isServerSideAgent, streamServerSide } from './anthropic-server.js';
 import { renderDesignSystemPreview } from './design-system-preview.js';
 import { renderDesignSystemShowcase } from './design-system-showcase.js';
 import { importClaudeDesignZip } from './claude-design-import.js';
@@ -165,6 +168,13 @@ export async function startServer({ port = 7456 } = {}) {
   // build advertises --include-partial-messages) so the first /api/chat
   // hits a populated cache even if /api/agents hasn't been called yet.
   void detectAgents().catch(() => {});
+
+  // MERGE-NOTE: studio — gate every request on the shapeshifter-beta JWT
+  // cookie before any /api/* or static routes match. Public allowlist is
+  // applied inside the shim (currently /api/health and /frames/*).
+  if (process.env.STUDIO_AUTH !== 'off') {
+    app.use(createAuthShim());
+  }
 
   if (fs.existsSync(STATIC_DIR)) {
     app.use(express.static(STATIC_DIR));
@@ -838,7 +848,12 @@ export async function startServer({ port = 7456 } = {}) {
     } = req.body || {};
     const def = getAgentDef(agentId);
     if (!def) return res.status(400).json({ error: `unknown agent: ${agentId}` });
-    if (!def.bin) return res.status(400).json({ error: 'agent has no binary' });
+    // MERGE-NOTE: studio — server-side agents (bin: null, streamFormat:
+    // 'sdk-direct') skip the spawn path entirely. The bin-null guard below
+    // only fires for misconfigured CLI agents.
+    if (!isServerSideAgent(def) && !def.bin) {
+      return res.status(400).json({ error: 'agent has no binary' });
+    }
     if (typeof message !== 'string' || !message.trim()) {
       return res.status(400).json({ error: 'message required' });
     }

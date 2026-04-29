@@ -76,7 +76,11 @@ export function App() {
             if (firstAvailable) next.agentId = firstAvailable.id;
           }
           if (!next.designSystemId && dsList.length > 0) {
-            next.designSystemId = dsList.find((d) => d.id === 'default')?.id
+            // MERGE-NOTE: studio — bias picker first-pick to Goa (Drewlo
+            // brand). Falls back to upstream `default` (Neutral Modern),
+            // then to whatever ships first.
+            next.designSystemId = dsList.find((d) => d.id === 'goa')?.id
+              ?? dsList.find((d) => d.id === 'default')?.id
               ?? dsList[0]!.id;
           }
         } else {
