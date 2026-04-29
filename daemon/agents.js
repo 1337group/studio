@@ -349,7 +349,7 @@ export const AGENT_DEFS = [
     promptViaStdin: true,
     streamFormat: 'plain',
   },
-  // MERGE-NOTE: studio — Drewlo addition. Server-side Anthropic SDK agent.
+  // MERGE-NOTE: studio — ShapeShifter addition. Server-side Anthropic SDK agent.
   // Bypasses the child_process.spawn path entirely — daemon/server.js
   // detects `bin === null` + `streamFormat === 'sdk-direct'` and routes
   // /api/chat through daemon/anthropic-server.js using the SDK with

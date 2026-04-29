@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition. Wraps the 5 Goa-designed Studio
+// MERGE-NOTE: studio — ShapeShifter addition. Wraps the 5 Goa-designed Studio
 // surfaces in a labelled vertical canvas — the same presentation Goa uses
 // inside `studio.html` (canvas → DCSection → DCArtboard). For P1.2 visual
 // approval: Isaac scrolls through and signs off. Real navigation (one

@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition.
+// MERGE-NOTE: studio — ShapeShifter addition.
 //
 // Goa tokens — TypeScript port of the Goa canvas's `components/tokens.jsx`.
 // The CSS variables in `./globals.css` are the source of truth; this file

@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition. Server-side Anthropic SDK adapter.
+// MERGE-NOTE: studio — ShapeShifter addition. Server-side Anthropic SDK adapter.
 //
 // Open-design's default chat path is `child_process.spawn(<cli-bin>, ...)` —
 // the daemon detects `claude`/`codex`/etc. on PATH and runs the user's local

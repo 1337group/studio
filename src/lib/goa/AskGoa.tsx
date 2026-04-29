@@ -1,8 +1,8 @@
-// MERGE-NOTE: studio — Drewlo addition.
+// MERGE-NOTE: studio — ShapeShifter addition.
 //
 // Ask Goa — Universal FAB. TypeScript port of the canvas's
 // `components/ask-goa.jsx`. Bottom-right floating-action button with the
-// Drewlo knot mark; opens a chat panel anchored to the current Studio
+// ShapeShifter knot mark; opens a chat panel anchored to the current Studio
 // surface.
 //
 // D-21 content-strip applied: the canvas version of `ask-goa.jsx` ships
@@ -69,7 +69,7 @@ function AskGoaFAB({ open, onToggle, bottomOffset }: AskGoaFABProps) {
         alignItems: 'center',
         justifyContent: 'center',
         background: '#0b0b0d',
-        backgroundImage: open ? 'none' : 'url("/assets/drewlo-knot-gold-on-black.png")',
+        backgroundImage: open ? 'none' : 'url("/assets/shapeshifter-knot-gold-on-black.png")',
         backgroundSize: '74%',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -192,7 +192,7 @@ function Header({ onClose }: { onClose: () => void }) {
           height: 30,
           borderRadius: 15,
           background: '#0b0b0d',
-          backgroundImage: 'url("/assets/drewlo-knot-gold-on-black.png")',
+          backgroundImage: 'url("/assets/shapeshifter-knot-gold-on-black.png")',
           backgroundSize: '74%',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -332,7 +332,7 @@ function Greeting({ surface }: { surface: string }) {
           borderRadius: 11,
           flexShrink: 0,
           background: '#0b0b0d',
-          backgroundImage: 'url("/assets/drewlo-knot-gold-on-black.png")',
+          backgroundImage: 'url("/assets/shapeshifter-knot-gold-on-black.png")',
           backgroundSize: '74%',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',

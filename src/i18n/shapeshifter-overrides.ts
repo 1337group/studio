@@ -1,4 +1,4 @@
-// Drewlo brand-string overrides on top of upstream open-design locales.
+// ShapeShifter Studio brand-string overrides on top of upstream open-design locales.
 //
 // SINGLE SOURCE for every place the surface displays brand identity.
 // Upstream merge discipline: edit this file, never `src/i18n/locales/*.ts`.
@@ -13,9 +13,9 @@
 // stays in upstream.
 import type { Dict, Locale } from './types';
 
-export type DrewloOverrideMap = Partial<Record<Locale, Partial<Dict>>>;
+export type ShapeShifterOverrideMap = Partial<Record<Locale, Partial<Dict>>>;
 
-export const drewloOverrides: DrewloOverrideMap = {
+export const shapeshifterOverrides: ShapeShifterOverrideMap = {
   en: {
     'app.brand': 'Studio',
     'app.brandPill': 'Beta',

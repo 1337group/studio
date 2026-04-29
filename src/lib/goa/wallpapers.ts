@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition.
+// MERGE-NOTE: studio — ShapeShifter addition.
 //
 // Goa wallpapers — TypeScript port of the canvas's `components/wallpapers.jsx`.
 // Six abstract gradient wallpapers; each ships a light + dark variant.

@@ -3,7 +3,7 @@ import { EntryView } from './components/EntryView';
 import type { CreateInput } from './components/NewProjectPanel';
 import { ProjectView } from './components/ProjectView';
 import { SettingsDialog } from './components/SettingsDialog';
-// MERGE-NOTE: studio — Drewlo additions. AskGoa is the universal FAB
+// MERGE-NOTE: studio — ShapeShifter additions. AskGoa is the universal FAB
 // that ships on every Goa surface; `applyGoaWallpaper` puts the Goa
 // coast gradient on the document so the visual identity reads "Goa"
 // even on screens whose chrome is still upstream open-design.
@@ -83,9 +83,9 @@ export function App() {
             if (firstAvailable) next.agentId = firstAvailable.id;
           }
           if (!next.designSystemId && dsList.length > 0) {
-            // MERGE-NOTE: studio — bias picker first-pick to Goa (Drewlo
-            // brand). Falls back to upstream `default` (Neutral Modern),
-            // then to whatever ships first.
+            // MERGE-NOTE: studio — bias picker first-pick to Goa (the
+            // ShapeShifter design language). Falls back to upstream
+            // `default` (Neutral Modern), then to whatever ships first.
             next.designSystemId = dsList.find((d) => d.id === 'goa')?.id
               ?? dsList.find((d) => d.id === 'default')?.id
               ?? dsList[0]!.id;
@@ -391,7 +391,7 @@ export function App() {
           onRefreshAgents={refreshAgents}
         />
       ) : null}
-      {/* MERGE-NOTE: studio — Drewlo addition. AskGoa floats on every
+      {/* MERGE-NOTE: studio — ShapeShifter addition. AskGoa floats on every
           route. Stub composer until P1.3 wires it to /api/chat over the
           shared SSE infrastructure with a Concierge agent. */}
       <AskGoa surface={askGoaContext.surface} route={askGoaContext.route} />

@@ -1,14 +1,15 @@
 /* ============================================================
-   Studio · ShapeShifter — Drewlo skin overlay (additive only).
+   ShapeShifter Studio — skin overlay (additive only).
    ------------------------------------------------------------
    This file is the SINGLE SOURCE for every CSS override that
-   re-skins upstream open-design into the Drewlo / Goa identity.
+   re-skins upstream open-design into ShapeShifter Studio's
+   visual identity, expressed via the Goa design language.
    It is loaded AFTER `index.css` and `lib/goa/globals.css` so
    the cascade order is:
-       upstream tokens (index.css)
-     → Goa primitives  (lib/goa/globals.css   →  --goa-* namespace)
-     → Drewlo overlay  (this file             →  rebinds upstream
-                                                  contracts to Goa)
+       upstream tokens     (index.css)
+     → Goa primitives      (lib/goa/globals.css   →  --goa-* namespace)
+     → ShapeShifter overlay (this file            →  rebinds upstream
+                                                     contracts to Goa)
 
    UPSTREAM MERGE DISCIPLINE
    - DO NOT EDIT `src/index.css`, locale files, or upstream JSX
@@ -53,7 +54,7 @@
   --text-soft:   var(--goa-fg-3);
   --text-faint:  var(--goa-fg-4);
 
-  /* Accent — Drewlo gold replaces upstream Claude rust. Soft tints kept
+  /* Accent — gold accent replaces upstream Claude rust. Soft tints kept
      analogous so existing accent-pill components stay visually correct. */
   --accent:        oklch(70% 0.135 75);
   --accent-strong: oklch(60% 0.140 75);
@@ -74,7 +75,8 @@
 
 /* ============================================================
    2. BRAND MARK — replace upstream's <img src="/logo.svg"> with
-   the Drewlo Goa-knot via CSS. Upstream JSX stays untouched.
+   the ShapeShifter knot drawn in Goa's visual language. Upstream
+   JSX stays untouched; the swap is CSS-only.
    ============================================================ */
 .topbar .brand-mark > img,
 .entry-brand-mark > img {
@@ -82,7 +84,7 @@
 }
 .topbar .brand-mark,
 .entry-brand-mark {
-  background-image: url('/drewlo-knot.png');
+  background-image: url('/shapeshifter-knot.png');
   background-size: contain;
   background-position: center;
   background-repeat: no-repeat;

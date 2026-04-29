@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition. Mock data for the Goa-designed Studio
+// MERGE-NOTE: studio — ShapeShifter addition. Mock data for the Goa-designed Studio
 // surfaces (StdAppDetail / StdPropose / StdScratch / StdLaunch / StdReview).
 // Ported verbatim from `reference/mockups/phase-1.2/components/studio-data.jsx`.
 // D-21: this file ships mock content for the visual P1.2 port. Real data

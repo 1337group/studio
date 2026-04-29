@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition. Verify shapeshifter-beta JWT cookie
+// MERGE-NOTE: studio — ShapeShifter addition. Verify shapeshifter-beta JWT cookie
 // on every request; redirect unauthenticated requests to ss.drewlo.com/login.
 //
 // Studio runs at studio.drewlo.com behind a Cloudflare tunnel. Users sign in

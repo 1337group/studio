@@ -1,4 +1,4 @@
-// MERGE-NOTE: studio — Drewlo addition. The 5 Goa-designed Studio surfaces,
+// MERGE-NOTE: studio — ShapeShifter addition. The 5 Goa-designed Studio surfaces,
 // ported verbatim from `reference/mockups/phase-1.2/components/studio-panes.jsx`
 // (which Goa generated for surface 09 in the canvas).
 //
@@ -33,7 +33,7 @@ import {
   type StdMessage,
 } from './data';
 
-const KNOT_BG = '/assets/drewlo-knot-gold-on-black.png';
+const KNOT_BG = '/assets/shapeshifter-knot-gold-on-black.png';
 
 type ShellProps = {
   leftHeader: ReactNode;

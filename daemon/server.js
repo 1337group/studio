@@ -19,7 +19,7 @@ import { attachAcpSession } from './acp.js';
 import { createClaudeStreamHandler } from './claude-stream.js';
 import { createCopilotStreamHandler } from './copilot-stream.js';
 import { createJsonEventStreamHandler } from './json-event-stream.js';
-// MERGE-NOTE: studio — Drewlo additions
+// MERGE-NOTE: studio — ShapeShifter additions
 import { createAuthShim } from './auth-shim.js';
 import { isServerSideAgent, streamServerSide } from './anthropic-server.js';
 import { renderDesignSystemPreview } from './design-system-preview.js';
