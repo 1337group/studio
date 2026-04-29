@@ -154,9 +154,12 @@ export const AGENT_DEFS = [
       { id: 'medium', label: 'Medium' },
       { id: 'high', label: 'High' },
     ],
-    buildArgs: (prompt, _imagePaths, _extra, options = {}) => {
-      // Keep Codex in workspace-write sandbox while avoiding interactive
-      // permission prompts in terminal-less web UI.
+    // Prompt delivered via stdin (`codex exec -`) to avoid Windows
+    // `spawn ENAMETOOLONG` — CreateProcess caps argv at ~32 KB and the
+    // composed prompt easily exceeds that. `--full-auto` keeps Codex in
+    // its workspace-write sandbox while skipping interactive permission
+    // prompts in the no-TTY web UI.
+    buildArgs: (_prompt, _imagePaths, _extra, options = {}) => {
       const args = ['exec', '--full-auto'];
       if (options.model && options.model !== 'default') {
         args.push('--model', options.model);
@@ -166,9 +169,10 @@ export const AGENT_DEFS = [
         // is exposed as `model_reasoning_effort`.
         args.push('-c', `model_reasoning_effort="${options.reasoning}"`);
       }
-      args.push(prompt);
+      args.push('-');
       return args;
     },
+    promptViaStdin: true,
     streamFormat: 'plain',
   },
   {
@@ -181,14 +185,18 @@ export const AGENT_DEFS = [
       { id: 'gemini-2.5-pro', label: 'gemini-2.5-pro' },
       { id: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
     ],
-    buildArgs: (prompt, _imagePaths, _extra, options = {}) => {
+    // Gemini reads from stdin when `-p` is omitted and stdin is a pipe.
+    // Passing the full composed prompt as a CLI arg causes ENAMETOOLONG on
+    // Windows (CreateProcess limit ~32 KB) for any non-trivial prompt.
+    // `--yolo` skips interactive approval prompts in the no-TTY web UI.
+    buildArgs: (_prompt, _imagePaths, _extra, options = {}) => {
       const args = ['--yolo'];
       if (options.model && options.model !== 'default') {
         args.push('--model', options.model);
       }
-      args.push('-p', prompt);
       return args;
     },
+    promptViaStdin: true,
     streamFormat: 'plain',
   },
   {
@@ -208,14 +216,17 @@ export const AGENT_DEFS = [
       { id: 'openai/gpt-5', label: 'openai/gpt-5' },
       { id: 'google/gemini-2.5-pro', label: 'google/gemini-2.5-pro' },
     ],
-    buildArgs: (prompt, _imagePaths, _extra, options = {}) => {
+    // Prompt delivered via stdin (`opencode run -`) to avoid Windows
+    // `spawn ENAMETOOLONG` for large composed prompts.
+    buildArgs: (_prompt, _imagePaths, _extra, options = {}) => {
       const args = ['run'];
       if (options.model && options.model !== 'default') {
         args.push('--model', options.model);
       }
-      args.push(prompt);
+      args.push('-');
       return args;
     },
+    promptViaStdin: true,
     streamFormat: 'plain',
   },
   {
@@ -242,14 +253,18 @@ export const AGENT_DEFS = [
       { id: 'sonnet-4-thinking', label: 'sonnet-4-thinking' },
       { id: 'gpt-5', label: 'gpt-5' },
     ],
-    buildArgs: (prompt, _imagePaths, _extra, options = {}) => {
+    // Prompt delivered via stdin (`cursor-agent -`) to avoid Windows
+    // `spawn ENAMETOOLONG` for large composed prompts. `--force` skips
+    // interactive approval prompts in the no-TTY web UI.
+    buildArgs: (_prompt, _imagePaths, _extra, options = {}) => {
       const args = ['--force'];
       if (options.model && options.model !== 'default') {
         args.push('--model', options.model);
       }
-      args.push('-p', prompt);
+      args.push('-');
       return args;
     },
+    promptViaStdin: true,
     streamFormat: 'plain',
   },
   {
@@ -262,15 +277,18 @@ export const AGENT_DEFS = [
       { id: 'qwen3-coder-plus', label: 'qwen3-coder-plus' },
       { id: 'qwen3-coder-flash', label: 'qwen3-coder-flash' },
     ],
-    buildArgs: (prompt, _imagePaths, _extra, options = {}) => {
-      // Qwen Code is a Gemini-CLI fork and supports the same `--yolo` mode.
+    // Prompt delivered via stdin (`qwen -`) to avoid Windows
+    // `spawn ENAMETOOLONG` for large composed prompts. Qwen Code is a
+    // Gemini-CLI fork and supports the same `--yolo` non-interactive mode.
+    buildArgs: (_prompt, _imagePaths, _extra, options = {}) => {
       const args = ['--yolo'];
       if (options.model && options.model !== 'default') {
         args.push('--model', options.model);
       }
-      args.push('-p', prompt);
+      args.push('-');
       return args;
     },
+    promptViaStdin: true,
     streamFormat: 'plain',
   },
   {
@@ -322,7 +340,7 @@ export const AGENT_DEFS = [
   },
 ];
 
-function resolveOnPath(bin) {
+export function resolveOnPath(bin) {
   const exts =
     process.platform === 'win32'
       ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';')
@@ -411,6 +429,7 @@ function stripFns(def) {
   const { buildArgs, listModels, fallbackModels, helpArgs, capabilityFlags, ...rest } = def;
   return rest;
 }
+
 
 export async function detectAgents() {
   const results = await Promise.all(AGENT_DEFS.map(probe));

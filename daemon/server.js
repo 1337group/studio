@@ -1010,12 +1010,29 @@ export async function startServer({ port = 7456 } = {}) {
 
     let child;
     try {
+      // When the agent definition sets `promptViaStdin`, pipe the composed
+      // prompt through stdin instead of embedding it in argv. Bypasses the
+      // OS command-line length limit (Windows CreateProcess caps at ~32 KB)
+      // which causes `spawn ENAMETOOLONG` for any non-trivial prompt.
+      const stdinMode = def.promptViaStdin ? 'pipe' : 'ignore';
       child = spawn(resolvedBin, args, {
         env: { ...process.env },
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: [stdinMode, 'pipe', 'pipe'],
         cwd: cwd || undefined,
         shell: useShell,
       });
+      if (def.promptViaStdin && child.stdin) {
+        // EPIPE from a fast-exiting CLI (bad auth, missing model, exit on
+        // launch) would otherwise surface as an unhandled stream error and
+        // crash the daemon. Swallow it — the regular exit/close handlers
+        // below already route the underlying failure to SSE via stderr.
+        child.stdin.on('error', (err) => {
+          if (err.code !== 'EPIPE') {
+            send('error', { message: `stdin: ${err.message}` });
+          }
+        });
+        child.stdin.end(composed, 'utf8');
+      }
     } catch (err) {
       send('error', { message: `spawn failed: ${err.message}` });
       return res.end();
