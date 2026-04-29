@@ -1,8 +1,8 @@
 /**
- * The base system prompt for Open Design.
+ * The base system prompt for Studio · ShapeShifter.
  *
  * Adapted from claude.ai/design's "expert designer" prompt — same identity,
- * workflow, and content philosophy, retargeted to the tools an OD-managed
+ * workflow, and content philosophy, retargeted to the tools the in-Studio
  * agent actually has (Claude Code's Read / Edit / Write / Bash / Glob / Grep
  * / TodoWrite, plus the project folder as cwd).
  *

@@ -8,6 +8,7 @@ import { SettingsDialog } from './components/SettingsDialog';
 // coast gradient on the document so the visual identity reads "Goa"
 // even on screens whose chrome is still upstream open-design.
 import { AskGoa } from './lib/goa/AskGoa';
+import { StudioCanvas } from './components/studio/StudioCanvas';
 import { applyGoaWallpaper } from './lib/goa/wallpapers';
 import {
   daemonIsLive,
@@ -318,6 +319,13 @@ export function App() {
     return { surface: 'Studio · home', route: '/' };
   }, [route, activeProject]);
 
+  // MERGE-NOTE: studio — Goa skin lives on top of the upstream layout, not
+  // instead of it. The default landing keeps EntryView (project list +
+  // create flow) intact; `?canvas=goa` reaches the Goa-designed Studio
+  // surface preview (5 stacked artboards) for design reference.
+  const wantGoaCanvas =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('canvas') === 'goa';
+
   return (
     <>
       {activeProject ? (
@@ -341,6 +349,8 @@ export function App() {
           onProjectChange={handleProjectChange}
           onProjectsRefresh={refreshProjects}
         />
+      ) : wantGoaCanvas ? (
+        <StudioCanvas />
       ) : (
         <EntryView
           skills={skills}

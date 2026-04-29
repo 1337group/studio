@@ -1,10 +1,10 @@
 {
-  "name": "open-design",
+  "name": "studio",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "type": "module",
-  "description": "Local-first design product: detects your installed code-agent CLI, runs design skills + design systems, streams artifacts into a sandboxed preview.",
+  "description": "Studio · ShapeShifter — fork-and-ship workspace apps with a code-agent at your side. Forked from nexu-io/open-design (Apache-2.0); Goa-skinned for Drewlo.",
   "license": "Apache-2.0",
   "bin": {
     "od": "./daemon/cli.js"

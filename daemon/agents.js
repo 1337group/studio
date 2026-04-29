@@ -303,10 +303,15 @@ export const AGENT_DEFS = [
     serverReady: () => Boolean(process.env.ANTHROPIC_API_KEY),
     fallbackModels: [
       DEFAULT_MODEL_OPTION,
-      { id: 'claude-sonnet-latest', label: 'claude-sonnet-latest' },
-      { id: 'claude-opus-latest', label: 'claude-opus-latest' },
-      { id: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5' },
+      // MERGE-NOTE: studio — current Claude 4.x model IDs (Anthropic API
+      // recognises these as concrete versions). The legacy `*-latest` IDs
+      // upstream listed here aren't valid Anthropic API aliases for 4.x —
+      // requests against `claude-opus-latest` 404. Use 4-7 / 4-6 / 4-5.
+      { id: 'claude-opus-4-7', label: 'claude-opus-4-7 (latest)' },
+      { id: 'claude-sonnet-4-6', label: 'claude-sonnet-4-6 (latest)' },
+      { id: 'claude-haiku-4-5-20251001', label: 'claude-haiku-4-5' },
       { id: 'claude-opus-4-5', label: 'claude-opus-4-5' },
+      { id: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5' },
     ],
     // No buildArgs — never spawned. Server.js routes this agent to
     // daemon/anthropic-server.js's streamServerSide().

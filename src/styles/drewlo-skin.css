@@ -1,0 +1,126 @@
+/* ============================================================
+   Studio · ShapeShifter — Drewlo skin overlay (additive only).
+   ------------------------------------------------------------
+   This file is the SINGLE SOURCE for every CSS override that
+   re-skins upstream open-design into the Drewlo / Goa identity.
+   It is loaded AFTER `index.css` and `lib/goa/globals.css` so
+   the cascade order is:
+       upstream tokens (index.css)
+     → Goa primitives  (lib/goa/globals.css   →  --goa-* namespace)
+     → Drewlo overlay  (this file             →  rebinds upstream
+                                                  contracts to Goa)
+
+   UPSTREAM MERGE DISCIPLINE
+   - DO NOT EDIT `src/index.css`, locale files, or upstream JSX
+     to change brand looks. Add an override here instead.
+   - When upstream renames a class or token, the corresponding
+     override in this file becomes a dead selector — `pnpm build`
+     will not warn, so a visual smoke-test post-merge is the
+     safety net.
+   - Comments below mark each block by purpose so a future merge
+     can prune anything genuinely obsolete instead of cargo-culting.
+   ============================================================ */
+
+
+/* ============================================================
+   1. TOKEN RE-BIND — alias upstream's token contract onto Goa
+   primitives. Every upstream component that reads `--bg`,
+   `--text`, `--accent`, etc. silently picks up Goa values.
+   ============================================================ */
+:root {
+  /* Typography — SF Pro system stack via Goa */
+  --sans:  var(--goa-font);
+  --mono:  var(--goa-font-mono);
+  --serif: var(--goa-font-serif);
+
+  /* Surfaces — warm Goa paper instead of upstream cream */
+  --bg:          var(--goa-bg);
+  --bg-app:      var(--goa-bg);
+  --bg-panel:    var(--goa-bg-elev);
+  --bg-subtle:   var(--goa-surface-2);
+  --bg-muted:    var(--goa-surface-3);
+  --bg-elevated: var(--goa-bg-elev);
+
+  /* Hairlines */
+  --border:        var(--goa-line);
+  --border-strong: var(--goa-line-strong);
+  --border-soft:   var(--goa-line-2);
+
+  /* Foreground */
+  --text:        var(--goa-fg);
+  --text-strong: var(--goa-fg);
+  --text-muted:  var(--goa-fg-3);
+  --text-soft:   var(--goa-fg-3);
+  --text-faint:  var(--goa-fg-4);
+
+  /* Accent — Drewlo gold replaces upstream Claude rust. Soft tints kept
+     analogous so existing accent-pill components stay visually correct. */
+  --accent:        oklch(70% 0.135 75);
+  --accent-strong: oklch(60% 0.140 75);
+  --accent-soft:   oklch(85% 0.08 80);
+  --accent-tint:   oklch(96% 0.04 80);
+  --accent-hover:  oklch(60% 0.140 75);
+}
+
+[data-goa-theme="dark"] :root,
+[data-goa-theme="dark"] {
+  /* Goa already defines its own dark variants under [data-goa-theme="dark"]
+     in lib/goa/globals.css. Surfaces re-resolve via the var() chain so we
+     only need to swap the few accent tints that don't auto-derive. */
+  --accent-soft: oklch(35% 0.10 75);
+  --accent-tint: oklch(28% 0.06 75);
+}
+
+
+/* ============================================================
+   2. BRAND MARK — replace upstream's <img src="/logo.svg"> with
+   the Drewlo Goa-knot via CSS. Upstream JSX stays untouched.
+   ============================================================ */
+.topbar .brand-mark > img,
+.entry-brand-mark > img {
+  display: none;
+}
+.topbar .brand-mark,
+.entry-brand-mark {
+  background-image: url('/drewlo-knot.png');
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #1a1916;
+  border: 1.5px solid var(--accent);
+}
+
+
+/* ============================================================
+   3. INLINE-HEX OVERRIDES — upstream uses literal Claude-rust
+   hex values in a handful of places, bypassing the --accent
+   token. Re-declare those selectors here with Goa-side gold.
+   Each rule listed with its upstream source for traceability.
+   ============================================================ */
+
+/* index.css ~line 354 — env-pill-dot rust gradient */
+.env-pill-dot {
+  background: linear-gradient(135deg, #d4a358 0%, #a17a30 100%);
+}
+
+/* index.css ~line 850 — agent-card.active rust tint */
+.agent-card.active {
+  background: linear-gradient(180deg, #fff 0%, #fffbef 100%);
+}
+
+/* index.css ~line 2266 — df-row-icon[data-kind="html"] rust pill */
+.df-row-icon[data-kind="html"] {
+  background: #fdf6dd;
+  color: #a17a30;
+}
+
+/* index.css ~line 3608 — op-todo rust gradient */
+.op-todo {
+  background: linear-gradient(180deg, #fffbef 0%, var(--bg-panel) 60%);
+}
+
+/* index.css ~line 218 — secondary brand pill (Settings dialog avatar) */
+.settings-avatar,
+.settings-dialog .brand-mark-secondary {
+  background: linear-gradient(135deg, #fdf6dd 0%, #ecd9a8 100%);
+}

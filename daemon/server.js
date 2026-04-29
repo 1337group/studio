@@ -955,7 +955,6 @@ export async function startServer({ port = 7456 } = {}) {
         ? def.reasoningOptions.find((r) => r.id === reasoning)?.id ?? null
         : null;
     const agentOptions = { model: safeModel, reasoning: safeReasoning };
-    const args = def.buildArgs(composed, safeImages, extraAllowedDirs, agentOptions);
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -967,6 +966,21 @@ export async function startServer({ port = 7456 } = {}) {
       res.write(`event: ${event}\n`);
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
+
+    // MERGE-NOTE: studio — server-side Anthropic SDK dispatch. CLI-mode
+    // agents have a `buildArgs(...)` function and run as child processes;
+    // server-side agents (`bin: null`, `streamFormat: 'sdk-direct'`) skip
+    // the spawn entirely and stream via @anthropic-ai/sdk. The chat route
+    // imports `streamServerSide` but upstream never wired the call —
+    // hitting `def.buildArgs(...)` below crashed the daemon (TypeError:
+    // not a function) and Cloudflare returned 502 to every chat request.
+    // Branch before buildArgs so server-side agents take the SDK path.
+    if (isServerSideAgent(def)) {
+      await streamServerSide({ def, composed, safeModel, send, res });
+      return;
+    }
+
+    const args = def.buildArgs(composed, safeImages, extraAllowedDirs, agentOptions);
 
     // Resolve the agent's bin to its absolute path. Detection (`/api/agents`)
     // already locates the executable via PATH, but spawning the bare name here

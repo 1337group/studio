@@ -10,6 +10,12 @@ import {
 import { en } from './locales/en';
 import { zhCN } from './locales/zh-CN';
 import { LOCALES, type Dict, type Locale } from './types';
+// MERGE-NOTE: studio — Drewlo brand-string overlay on upstream locales.
+// Single source for every brand identity string is `drewlo-overrides.ts`;
+// the spread below shallow-merges per-locale on top of the upstream Dict
+// so upstream key renames + new locales (pt-BR etc.) still surface as
+// merge conflicts here, not silently in the locale files themselves.
+import { drewloOverrides } from './drewlo-overrides';
 
 export { LOCALES, LOCALE_LABEL } from './types';
 export type { Locale } from './types';
@@ -17,8 +23,8 @@ export type { Locale } from './types';
 type DictKey = keyof Dict;
 
 const DICTS: Record<Locale, Dict> = {
-  'en': en,
-  'zh-CN': zhCN,
+  'en':    { ...en,   ...(drewloOverrides.en   ?? {}) },
+  'zh-CN': { ...zhCN, ...(drewloOverrides['zh-CN'] ?? {}) },
 };
 
 const LS_KEY = 'open-design:locale';

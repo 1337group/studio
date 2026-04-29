@@ -3,12 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { I18nProvider } from './i18n';
 import './index.css';
-// MERGE-NOTE: studio — load Goa CSS variables + lucide iconfont after the
-// upstream open-design tokens. Goa lives in its own `--goa-*` namespace
-// so it doesn't override `--bg`/`--text`/etc.; surfaces opt into Goa
-// explicitly. Surface restructure (P1.2.2) wires Goa primitives in as the
-// upstream chrome gets replaced.
+// MERGE-NOTE: studio — load Goa primitives + Drewlo skin overlay AFTER
+// upstream's index.css so the cascade order is:
+//   upstream tokens → Goa primitives (--goa-*) → Drewlo overlay (rebinds
+//   --bg/--text/--accent etc. onto Goa values + brand-mark + inline-hex
+//   patches). All Drewlo skin work lives in `src/styles/drewlo-skin.css`
+//   so upstream merges leave both this file and `index.css` clean.
 import './lib/goa/globals.css';
+import './styles/drewlo-skin.css';
 
 const el = document.getElementById('root');
 if (!el) throw new Error('#root element not found');
