@@ -3,7 +3,11 @@
    System font stack only. No web fonts imported.
 */
 
-@import "https://unpkg.com/lucide-static@0.452.0/font/lucide.css";
+/* MERGE-NOTE: studio — was `@import "https://unpkg.com/lucide-static@0.452.0/font/lucide.css";`
+   on the Goa canvas. Self-hosted under `/vendor/lucide/` for production
+   resilience (no unpkg runtime dependency). When Goa canon re-issues
+   globals.css, keep this swap. */
+@import "/vendor/lucide/lucide.css";
 
 :root {
   /* === Type === */

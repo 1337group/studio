@@ -1,8 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntryView } from './components/EntryView';
 import type { CreateInput } from './components/NewProjectPanel';
 import { ProjectView } from './components/ProjectView';
 import { SettingsDialog } from './components/SettingsDialog';
+// MERGE-NOTE: studio — Drewlo additions. AskGoa is the universal FAB
+// that ships on every Goa surface; `applyGoaWallpaper` puts the Goa
+// coast gradient on the document so the visual identity reads "Goa"
+// even on screens whose chrome is still upstream open-design.
+import { AskGoa } from './lib/goa/AskGoa';
+import { applyGoaWallpaper } from './lib/goa/wallpapers';
 import {
   daemonIsLive,
   fetchAgents,
@@ -286,6 +292,32 @@ export function App() {
     void refreshTemplates();
   }, [route.kind, refreshTemplates]);
 
+  // MERGE-NOTE: studio — apply Goa visual identity once at mount.
+  // - `data-goa-theme="light"` forces the Goa light tokens regardless of OS
+  //   preference (the Goa canvas's default for productivity surfaces).
+  // - `coast` is the per-Goa-convention default wallpaper for app-like
+  //   surfaces; settings-like screens (when added) opt into `graphite`.
+  // No theme toggle yet — that lands with the chrome reskin in P1.2.2.
+  useEffect(() => {
+    document.documentElement.dataset.goaTheme = 'light';
+    applyGoaWallpaper('coast', false);
+  }, []);
+
+  // MERGE-NOTE: studio — page-context payload for the AskGoa concierge FAB.
+  // Surface name and route stay generic until the chrome reskin lands; once
+  // surfaces are restructured (StdScratch / StdReview / etc) this picks up
+  // richer context (selected file, current preview state, etc).
+  const askGoaContext = useMemo(() => {
+    if (route.kind === 'project') {
+      const projectName = activeProject?.name ?? route.projectId;
+      return {
+        surface: `Studio · ${projectName}`,
+        route: `/projects/${route.projectId}`,
+      };
+    }
+    return { surface: 'Studio · home', route: '/' };
+  }, [route, activeProject]);
+
   return (
     <>
       {activeProject ? (
@@ -349,6 +381,10 @@ export function App() {
           onRefreshAgents={refreshAgents}
         />
       ) : null}
+      {/* MERGE-NOTE: studio — Drewlo addition. AskGoa floats on every
+          route. Stub composer until P1.3 wires it to /api/chat over the
+          shared SSE infrastructure with a Concierge agent. */}
+      <AskGoa surface={askGoaContext.surface} route={askGoaContext.route} />
     </>
   );
 }
