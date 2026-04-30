@@ -80,8 +80,12 @@
    centered at 74% of container, subtle inset gold-glow ring.
    Upstream JSX stays untouched; the swap is CSS-only.
    ============================================================ */
-.topbar .brand-mark > img,
-.entry-brand-mark > img {
+/* SPECIFICITY NOTE: upstream's `.entry-brand-mark .brand-mark-img { display: block }`
+   has specificity (0,2,0) and was beating our previous `> img` (0,1,1) selector,
+   leaving the upstream Nexu Labs spark icon visible on top of our knot background.
+   Match upstream's selector pattern (class on the IMG) so we win on cascade order. */
+.topbar .brand-mark .brand-mark-img,
+.entry-brand-mark .brand-mark-img {
   display: none;
 }
 .topbar .brand-mark,
@@ -90,6 +94,27 @@
   border-radius: 50%;
   border: none;
   box-shadow: 0 0 0 1px rgba(207, 161, 76, 0.5) inset;
+}
+
+/* Top-right avatar (project topbar) — same composition as the brand
+   mark so the chrome reads as one branded surface, not stock-Open-
+   Design avatar.png + ShapeShifter knot. AvatarMenu.tsx renders
+   <img src="/avatar.png"> which we hide in favour of the knot
+   background. JSX untouched on every upstream pull. */
+.avatar-btn .avatar-btn-photo {
+  display: none;
+}
+.avatar-btn {
+  background: rgb(11, 11, 13) url('/shapeshifter-knot.png') center center / 60% no-repeat;
+  border: 1px solid rgba(207, 161, 76, 0.45);
+}
+.avatar-btn:hover:not(:disabled) {
+  box-shadow: 0 0 0 3px rgba(207, 161, 76, 0.20);
+  border-color: rgba(207, 161, 76, 0.75);
+}
+.avatar-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(207, 161, 76, 0.40);
+  border-color: rgba(207, 161, 76, 0.75);
 }
 
 

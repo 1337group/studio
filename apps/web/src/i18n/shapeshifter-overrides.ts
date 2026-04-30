@@ -7,10 +7,11 @@
 // edit) where each upstream Dict gets shallow-merged with its matching
 // override. Missing locales fall back to English brand strings.
 //
-// When upstream adds a new locale (e.g. pt-BR via PR #79), add an entry
-// here for it — otherwise the brand strings stay in upstream's language.
-// This file alone is the diff that re-skins identity; everything else
-// stays in upstream.
+// COVERAGE: every locale upstream ships gets an entry here. When upstream
+// adds a new locale, add a matching entry — otherwise its brand strings
+// stay in upstream's "Open Design" naming. Translations are kept short
+// because the brand layout splits "Studio" + subtitle "by ShapeShifter"
+// + pill — full "Studio by ShapeShifter" reads naturally as a unit.
 import type { Dict, Locale } from './types';
 
 export type ShapeShifterOverrideMap = Partial<Record<Locale, Partial<Dict>>>;
@@ -20,12 +21,36 @@ export const shapeshifterOverrides: ShapeShifterOverrideMap = {
     'app.brand': 'Studio',
     'app.brandPill': 'Beta',
     'app.brandSubtitle': 'by ShapeShifter',
-    'settings.welcomeTitle': 'Set up Studio',
+    'settings.welcomeTitle': 'Set up Studio by ShapeShifter',
   },
   'zh-CN': {
     'app.brand': 'Studio',
     'app.brandPill': '测试版',
     'app.brandSubtitle': '由 ShapeShifter 出品',
-    'settings.welcomeTitle': '初始化 Studio',
+    'settings.welcomeTitle': '初始化 Studio by ShapeShifter',
+  },
+  'zh-TW': {
+    'app.brand': 'Studio',
+    'app.brandPill': '測試版',
+    'app.brandSubtitle': '由 ShapeShifter 出品',
+    'settings.welcomeTitle': '初始化 Studio by ShapeShifter',
+  },
+  'pt-BR': {
+    'app.brand': 'Studio',
+    'app.brandPill': 'Beta',
+    'app.brandSubtitle': 'por ShapeShifter',
+    'settings.welcomeTitle': 'Configure o Studio by ShapeShifter',
+  },
+  ru: {
+    'app.brand': 'Studio',
+    'app.brandPill': 'Бета',
+    'app.brandSubtitle': 'от ShapeShifter',
+    'settings.welcomeTitle': 'Настройка Studio by ShapeShifter',
+  },
+  fa: {
+    'app.brand': 'Studio',
+    'app.brandPill': 'بتا',
+    'app.brandSubtitle': 'توسط ShapeShifter',
+    'settings.welcomeTitle': 'راه‌اندازی Studio by ShapeShifter',
   },
 };
