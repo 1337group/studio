@@ -904,7 +904,6 @@ function HtmlViewer({
               transformOrigin: '0 0',
             }}
           >
-            // MERGE-NOTE: studio — sandbox upgraded to allow-same-origin (see agents/studio/CLAUDE.md gotcha #12)
             <iframe
               ref={iframeRef}
               data-testid="artifact-preview-frame"
@@ -930,7 +929,6 @@ function HtmlViewer({
           >
             <Icon name="close" size={13} /> {t('fileViewer.exitPresentation')}
           </button>
-          // MERGE-NOTE: studio — sandbox upgraded to allow-same-origin (see agents/studio/CLAUDE.md gotcha #12)
           <iframe title="present" sandbox="allow-scripts allow-same-origin" srcDoc={srcDoc} />
         </div>
       ) : null}
