@@ -30,6 +30,9 @@ import { listPromptTemplates, readPromptTemplate } from './prompt-templates.js';
 import { buildDocumentPreview } from './document-preview.js';
 import { lintArtifact, renderFindingsForAgent } from './lint-artifact.js';
 import { generateMedia } from './media.js';
+// MERGE-NOTE: studio — ShapeShifter additions: server-side Anthropic SDK + auth shim
+import { isServerSideAgent, streamServerSide } from './anthropic-server.js';
+import { createAuthShim } from './auth-shim.js';
 import {
   AUDIO_DURATIONS_SEC,
   AUDIO_MODELS_BY_KIND,
@@ -467,6 +470,14 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
   // build advertises --include-partial-messages) so the first /api/chat
   // hits a populated cache even if /api/agents hasn't been called yet.
   void detectAgents().catch(() => {});
+
+  // MERGE-NOTE: studio — gate every request on the shapeshifter JWT cookie
+  // before any /api/* or static routes match. Public allowlist is applied
+  // inside the shim (currently /api/health and /frames/*). Set
+  // STUDIO_AUTH=off to bypass during local dev.
+  if (process.env.STUDIO_AUTH !== 'off') {
+    app.use(createAuthShim());
+  }
 
   if (fs.existsSync(STATIC_DIR)) {
     app.use(express.static(STATIC_DIR));
@@ -1590,7 +1601,12 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     if (typeof agentId === 'string' && agentId) run.agentId = agentId;
     const def = getAgentDef(agentId);
     if (!def) return design.runs.fail(run, 'AGENT_UNAVAILABLE', `unknown agent: ${agentId}`);
-    if (!def.bin) return design.runs.fail(run, 'AGENT_UNAVAILABLE', 'agent has no binary');
+    // MERGE-NOTE: studio — server-side agents (bin: null, streamFormat:
+    // 'sdk-direct') skip the spawn path entirely. The bin-null guard below
+    // only fires for misconfigured CLI agents.
+    if (!isServerSideAgent(def) && !def.bin) {
+      return design.runs.fail(run, 'AGENT_UNAVAILABLE', 'agent has no binary');
+    }
     if (typeof message !== 'string' || !message.trim()) {
       return design.runs.fail(run, 'BAD_REQUEST', 'message required');
     }
@@ -1699,6 +1715,16 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
         ? def.reasoningOptions.find((r) => r.id === reasoning)?.id ?? null
         : null;
     const agentOptions = { model: safeModel, reasoning: safeReasoning };
+
+    // MERGE-NOTE: studio — server-side Anthropic SDK dispatch BEFORE
+    // upstream's resolveAgentBin + Windows ENAMETOOLONG block + buildArgs.
+    // For agents with bin=null + streamFormat='sdk-direct' (defined in
+    // agents.ts), short-circuit the CLI-spawn path entirely. Hive doesn't
+    // have CLI bins installed so this is the ONLY working path on prod.
+    if (isServerSideAgent(def)) {
+      await streamServerSide({ def, composed, safeModel, run, runs: design.runs });
+      return;
+    }
 
     // Windows ENAMETOOLONG mitigation.  On Windows the OS caps the command
     // line passed to child_process.spawn: ~8 191 chars when shell:true is

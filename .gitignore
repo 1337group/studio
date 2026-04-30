@@ -43,3 +43,6 @@ tsconfig.tsbuildinfo
 task.md
 specs/change/active
 .ralph/
+
+# MERGE-NOTE: studio — workspace-private GSD planning artifacts
+.planning/

@@ -1,0 +1,285 @@
+/* Goa — design language for ShapeShifter RC1-P1
+   Original token system. Frosted-chrome aesthetic, light + dark parity.
+   System font stack only. No web fonts imported.
+*/
+
+/* MERGE-NOTE: studio — was `@import "https://unpkg.com/lucide-static@0.452.0/font/lucide.css";`
+   on the Goa canvas, then bumped to `@import "/vendor/lucide/lucide.css"` for
+   the Vite era. Next.js (Turbopack) refuses server-relative @import in CSS at
+   build time. The lucide font is now loaded via a runtime <link rel="stylesheet">
+   in app/layout.tsx (which Turbopack does not parse). lucide.css + its font
+   files still live at public/vendor/lucide/ and are served from there. */
+
+:root {
+  /* === Type === */
+  --goa-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+  --goa-font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", monospace;
+  /* Editorial serif — Apple system "New York" (used by Apple News, Books) */
+  --goa-font-serif: ui-serif, "New York", "Charter", "Iowan Old Style", Georgia, serif;
+
+  /* Type scale — derived from SF Pro Text/Display dynamic type */
+  --goa-text-xs: 11px;
+  --goa-text-sm: 13px;
+  --goa-text-base: 15px;
+  --goa-text-md: 17px;
+  --goa-text-lg: 20px;
+  --goa-text-xl: 24px;
+  --goa-text-2xl: 28px;
+  --goa-text-3xl: 34px;
+  --goa-text-4xl: 44px;
+  --goa-text-5xl: 56px;
+
+  --goa-tracking-tight: -0.022em;
+  --goa-tracking-snug: -0.014em;
+  --goa-tracking-normal: -0.006em;
+
+  /* === Spacing — 4pt baseline === */
+  --goa-1: 4px;
+  --goa-2: 8px;
+  --goa-3: 12px;
+  --goa-4: 16px;
+  --goa-5: 20px;
+  --goa-6: 24px;
+  --goa-7: 32px;
+  --goa-8: 40px;
+  --goa-9: 56px;
+  --goa-10: 72px;
+
+  /* === Radii === */
+  --goa-r-xs: 6px;
+  --goa-r-sm: 10px;
+  --goa-r-md: 14px;
+  --goa-r-lg: 18px;
+  --goa-r-xl: 22px;
+  --goa-r-2xl: 28px;
+  --goa-r-tile: 18px;     /* app tile */
+  --goa-r-card: 20px;     /* content card */
+  --goa-r-sheet: 26px;    /* modal sheet */
+  --goa-r-pill: 999px;
+
+  /* === Light palette === */
+  --goa-bg: oklch(98.4% 0.003 230);
+  --goa-bg-elev: oklch(100% 0 0);
+  --goa-bg-sunken: oklch(96.2% 0.004 230);
+  --goa-surface: oklch(100% 0 0);
+  --goa-surface-2: oklch(97.8% 0.003 230);
+  --goa-surface-3: oklch(95.4% 0.004 230);
+
+  --goa-fg: oklch(18% 0.012 250);
+  --goa-fg-2: oklch(38% 0.012 250);
+  --goa-fg-3: oklch(56% 0.010 250);
+  --goa-fg-4: oklch(72% 0.008 250);
+
+  --goa-line: oklch(91% 0.005 240);
+  --goa-line-2: oklch(94.5% 0.004 240);
+  --goa-line-strong: oklch(85% 0.006 240);
+
+  /* Accent — Goa Sea (original — saturated teal-blue, OS-native feel) */
+  --goa-accent: oklch(62% 0.158 232);
+  --goa-accent-hover: oklch(57% 0.162 232);
+  --goa-accent-soft: oklch(94% 0.040 232);
+  --goa-accent-fg: oklch(100% 0 0);
+
+  /* System hues — original Goa palette */
+  --goa-red:    oklch(63% 0.205 25);
+  --goa-orange: oklch(72% 0.165 55);
+  --goa-amber:  oklch(80% 0.155 85);
+  --goa-green:  oklch(68% 0.155 150);
+  --goa-mint:   oklch(78% 0.110 178);
+  --goa-cyan:   oklch(72% 0.110 215);
+  --goa-blue:   oklch(62% 0.158 232);
+  --goa-indigo: oklch(54% 0.180 270);
+  --goa-purple: oklch(58% 0.190 305);
+  --goa-pink:   oklch(70% 0.180 355);
+  --goa-brown:  oklch(54% 0.060 60);
+  --goa-grey:   oklch(60% 0.008 250);
+
+  /* === Liquid Glass — chrome only === */
+  --goa-glass-thin: rgba(255, 255, 255, 0.42);
+  --goa-glass: rgba(255, 255, 255, 0.58);
+  --goa-glass-thick: rgba(255, 255, 255, 0.74);
+  --goa-glass-tint: rgba(248, 250, 254, 0.55);
+  --goa-glass-border: rgba(255, 255, 255, 0.65);
+  --goa-glass-stroke: rgba(0, 8, 24, 0.06);
+
+  --goa-blur-thin: blur(18px) saturate(1.4);
+  --goa-blur: blur(24px) saturate(1.6);
+  --goa-blur-thick: blur(40px) saturate(1.8);
+
+  /* === Shadows === */
+  --goa-shadow-1: 0 1px 2px rgba(8, 12, 28, 0.04), 0 1px 1px rgba(8, 12, 28, 0.03);
+  --goa-shadow-2: 0 4px 12px rgba(8, 12, 28, 0.06), 0 1px 2px rgba(8, 12, 28, 0.04);
+  --goa-shadow-3: 0 12px 28px rgba(8, 12, 28, 0.08), 0 2px 6px rgba(8, 12, 28, 0.04);
+  --goa-shadow-4: 0 24px 56px rgba(8, 12, 28, 0.14), 0 4px 12px rgba(8, 12, 28, 0.06);
+  --goa-shadow-glass: 0 18px 48px rgba(8, 12, 28, 0.18), 0 2px 6px rgba(8, 12, 28, 0.06);
+  --goa-shadow-tile: 0 2px 10px rgba(8, 12, 28, 0.10), 0 1px 2px rgba(8, 12, 28, 0.04);
+
+  /* === Motion === */
+  --goa-ease: cubic-bezier(0.32, 0.12, 0.24, 1);  /* Goa signature curve */
+  --goa-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --goa-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --goa-dur-fast: 140ms;
+  --goa-dur: 220ms;
+  --goa-dur-slow: 340ms;
+
+  /* Wallpaper — abstract Goa gradient, original (warm coast palette) */
+  --goa-wallpaper:
+    radial-gradient(ellipse at 18% 8%, oklch(82% 0.13 215 / 0.85) 0%, transparent 55%),
+    radial-gradient(ellipse at 88% 22%, oklch(78% 0.14 250 / 0.78) 0%, transparent 50%),
+    radial-gradient(ellipse at 65% 95%, oklch(86% 0.10 290 / 0.55) 0%, transparent 60%),
+    radial-gradient(ellipse at 8% 92%, oklch(88% 0.09 195 / 0.6) 0%, transparent 55%),
+    linear-gradient(170deg, oklch(95% 0.045 220) 0%, oklch(92% 0.06 245) 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --goa-bg: oklch(13% 0.010 250);
+    --goa-bg-elev: oklch(17% 0.011 250);
+    --goa-bg-sunken: oklch(10% 0.010 250);
+    --goa-surface: oklch(19% 0.012 250);
+    --goa-surface-2: oklch(22% 0.013 250);
+    --goa-surface-3: oklch(26% 0.014 250);
+
+    --goa-fg: oklch(97% 0.005 240);
+    --goa-fg-2: oklch(82% 0.008 240);
+    --goa-fg-3: oklch(64% 0.010 240);
+    --goa-fg-4: oklch(48% 0.011 240);
+
+    --goa-line: oklch(28% 0.012 250);
+    --goa-line-2: oklch(24% 0.012 250);
+    --goa-line-strong: oklch(36% 0.014 250);
+
+    --goa-accent: oklch(70% 0.160 232);
+    --goa-accent-hover: oklch(76% 0.155 232);
+    --goa-accent-soft: oklch(28% 0.080 232);
+
+    --goa-glass-thin: rgba(28, 32, 44, 0.42);
+    --goa-glass: rgba(28, 32, 44, 0.58);
+    --goa-glass-thick: rgba(22, 25, 36, 0.78);
+    --goa-glass-tint: rgba(34, 38, 52, 0.55);
+    --goa-glass-border: rgba(255, 255, 255, 0.10);
+    --goa-glass-stroke: rgba(255, 255, 255, 0.06);
+
+    --goa-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --goa-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
+    --goa-shadow-3: 0 12px 28px rgba(0, 0, 0, 0.50);
+    --goa-shadow-4: 0 24px 56px rgba(0, 0, 0, 0.55);
+    --goa-shadow-glass: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --goa-shadow-tile: 0 2px 10px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+    --goa-wallpaper:
+      radial-gradient(ellipse at 18% 8%, oklch(40% 0.16 215 / 0.65) 0%, transparent 55%),
+      radial-gradient(ellipse at 88% 22%, oklch(36% 0.17 250 / 0.58) 0%, transparent 50%),
+      radial-gradient(ellipse at 65% 95%, oklch(38% 0.13 290 / 0.45) 0%, transparent 60%),
+      radial-gradient(ellipse at 8% 92%, oklch(34% 0.12 195 / 0.55) 0%, transparent 55%),
+      linear-gradient(170deg, oklch(14% 0.030 230) 0%, oklch(11% 0.020 250) 100%);
+  }
+}
+
+/* Theme override classes */
+[data-goa-theme="light"] {
+  color-scheme: light;
+}
+[data-goa-theme="dark"] {
+  color-scheme: dark;
+  --goa-bg: oklch(13% 0.010 250);
+  --goa-bg-elev: oklch(17% 0.011 250);
+  --goa-bg-sunken: oklch(10% 0.010 250);
+  --goa-surface: oklch(19% 0.012 250);
+  --goa-surface-2: oklch(22% 0.013 250);
+  --goa-surface-3: oklch(26% 0.014 250);
+  --goa-fg: oklch(97% 0.005 240);
+  --goa-fg-2: oklch(82% 0.008 240);
+  --goa-fg-3: oklch(64% 0.010 240);
+  --goa-fg-4: oklch(48% 0.011 240);
+  --goa-line: oklch(28% 0.012 250);
+  --goa-line-2: oklch(24% 0.012 250);
+  --goa-line-strong: oklch(36% 0.014 250);
+  --goa-accent: oklch(70% 0.160 232);
+  --goa-accent-hover: oklch(76% 0.155 232);
+  --goa-accent-soft: oklch(28% 0.080 232);
+  --goa-glass-thin: rgba(28, 32, 44, 0.42);
+  --goa-glass: rgba(28, 32, 44, 0.58);
+  --goa-glass-thick: rgba(22, 25, 36, 0.78);
+  --goa-glass-tint: rgba(34, 38, 52, 0.55);
+  --goa-glass-border: rgba(255, 255, 255, 0.10);
+  --goa-glass-stroke: rgba(255, 255, 255, 0.06);
+  --goa-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --goa-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
+  --goa-shadow-3: 0 12px 28px rgba(0, 0, 0, 0.50);
+  --goa-shadow-4: 0 24px 56px rgba(0, 0, 0, 0.55);
+  --goa-shadow-glass: 0 18px 48px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --goa-shadow-tile: 0 2px 10px rgba(0, 0, 0, 0.50), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --goa-wallpaper:
+    radial-gradient(ellipse at 18% 8%, oklch(40% 0.16 215 / 0.65) 0%, transparent 55%),
+    radial-gradient(ellipse at 88% 22%, oklch(36% 0.17 250 / 0.58) 0%, transparent 50%),
+    radial-gradient(ellipse at 65% 95%, oklch(38% 0.13 290 / 0.45) 0%, transparent 60%),
+    radial-gradient(ellipse at 8% 92%, oklch(34% 0.12 195 / 0.55) 0%, transparent 55%),
+    linear-gradient(170deg, oklch(14% 0.030 230) 0%, oklch(11% 0.020 250) 100%);
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  background: var(--goa-bg);
+  color: var(--goa-fg);
+  font-family: var(--goa-font);
+  font-size: var(--goa-text-base);
+  line-height: 1.42;
+  letter-spacing: var(--goa-tracking-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+body { min-height: 100vh; }
+
+button { font-family: inherit; cursor: pointer; }
+::selection { background: var(--goa-accent); color: var(--goa-accent-fg); }
+
+/* Lucide icons sizing helpers */
+.lucide { line-height: 1; display: inline-block; }
+
+/* Glass utility classes */
+.goa-glass {
+  background: var(--goa-glass);
+  backdrop-filter: var(--goa-blur);
+  -webkit-backdrop-filter: var(--goa-blur);
+  border: 1px solid var(--goa-glass-border);
+}
+.goa-glass-thin {
+  background: var(--goa-glass-thin);
+  backdrop-filter: var(--goa-blur-thin);
+  -webkit-backdrop-filter: var(--goa-blur-thin);
+}
+.goa-glass-thick {
+  background: var(--goa-glass-thick);
+  backdrop-filter: var(--goa-blur-thick);
+  -webkit-backdrop-filter: var(--goa-blur-thick);
+}
+
+/* Wallpaper layer */
+.goa-wallpaper {
+  background: var(--goa-wallpaper);
+}
+
+/* Editorial body — for long-form reading text only (briefings, articles, notes).
+   Use sparingly: titles stay sans (SF), this is for paragraph text. */
+.goa-prose {
+  font-family: var(--goa-font-serif);
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: -0.003em;
+}
+.goa-prose p { margin: 0 0 0.7em; }
+.goa-prose p:last-child { margin-bottom: 0; }
+
+/* Scrollbars — quiet OS-native style */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--goa-line-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--goa-fg-4); background-clip: padding-box; border: 2px solid transparent; }

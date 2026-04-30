@@ -16,6 +16,8 @@ import { ru } from './locales/ru';
 import { zhCN } from './locales/zh-CN';
 import { zhTW } from './locales/zh-TW';
 import { LOCALES, type Dict, type Locale } from './types';
+// MERGE-NOTE: studio — ShapeShifter brand strings overlay
+import { shapeshifterOverrides } from './shapeshifter-overrides';
 
 export { LOCALES, LOCALE_LABEL } from './types';
 export type { Locale } from './types';
@@ -23,12 +25,14 @@ export type { Locale } from './types';
 type DictKey = keyof Dict;
 
 const DICTS: Record<Locale, Dict> = {
-  'en': en,
-  'zh-CN': zhCN,
-  'zh-TW': zhTW,
-  'pt-BR': ptBR,
-  'ru': ru,
-  'fa': fa,
+  // MERGE-NOTE: studio — spread shapeshifterOverrides on every locale so brand
+  // strings stay consistent across languages without per-locale duplication.
+  'en':    { ...en,    ...shapeshifterOverrides },
+  'zh-CN': { ...zhCN,  ...shapeshifterOverrides },
+  'zh-TW': { ...zhTW,  ...shapeshifterOverrides },
+  'pt-BR': { ...ptBR,  ...shapeshifterOverrides },
+  'ru':    { ...ru,    ...shapeshifterOverrides },
+  'fa':    { ...fa,    ...shapeshifterOverrides },
 };
 
 const LS_KEY = 'open-design:locale';

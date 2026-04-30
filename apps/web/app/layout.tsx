@@ -2,15 +2,18 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { I18nProvider } from '../src/i18n';
 import '../src/index.css';
+// MERGE-NOTE: studio — ShapeShifter skin overlay imports loaded AFTER upstream's
+// index.css so the cascade puts ShapeShifter rebinds last (last rule wins).
+import '../src/lib/goa/globals.css';
+import '../src/styles/shapeshifter-skin.css';
 
 export const metadata: Metadata = {
-  title: 'Open Design',
+  // MERGE-NOTE: studio — brand title
+  title: 'ShapeShifter Studio',
   icons: {
-    icon: '/logo.svg',
-    // Safari pinned-tab mask icon — Next.js's Metadata API doesn't have a
-    // dedicated `mask` field, so we surface it via the generic `other`
-    // bucket which renders as a raw <link rel="mask-icon" ...>.
-    other: [{ rel: 'mask-icon', url: '/logo.svg', color: '#1F1B16' }],
+    // MERGE-NOTE: studio — favicon swapped to ShapeShifter knot
+    icon: '/shapeshifter-knot.png',
+    other: [{ rel: 'mask-icon', url: '/shapeshifter-knot.png', color: '#0b0b0d' }],
   },
 };
 
@@ -21,6 +24,12 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang='en' suppressHydrationWarning>
+      <head>
+        {/* MERGE-NOTE: studio — runtime <link> for self-hosted lucide font.
+            Turbopack rejects server-relative `@import` in CSS, so we wire it
+            here instead of inside `index.css` / `shapeshifter-skin.css`. */}
+        <link rel="stylesheet" href="/vendor/lucide/lucide.css" />
+      </head>
       <body>
         <I18nProvider>{children}</I18nProvider>
       </body>
