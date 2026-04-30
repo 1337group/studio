@@ -307,7 +307,8 @@ function DfPreview({
         {file.kind === 'image' || file.kind === 'sketch' ? (
           <img src={`${url}?v=${Math.round(file.mtime)}`} alt={file.name} />
         ) : file.kind === 'html' ? (
-          <iframe title={file.name} src={url} sandbox="allow-scripts" />
+          // MERGE-NOTE: studio — sandbox upgraded to allow-same-origin (see agents/studio/CLAUDE.md gotcha #12)
+          <iframe title={file.name} src={url} sandbox="allow-scripts allow-same-origin" />
         ) : file.kind === 'video' ? (
           <video
             src={`${url}?v=${Math.round(file.mtime)}`}

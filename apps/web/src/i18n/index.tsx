@@ -25,14 +25,15 @@ export type { Locale } from './types';
 type DictKey = keyof Dict;
 
 const DICTS: Record<Locale, Dict> = {
-  // MERGE-NOTE: studio — spread shapeshifterOverrides on every locale so brand
-  // strings stay consistent across languages without per-locale duplication.
-  'en':    { ...en,    ...shapeshifterOverrides },
-  'zh-CN': { ...zhCN,  ...shapeshifterOverrides },
-  'zh-TW': { ...zhTW,  ...shapeshifterOverrides },
-  'pt-BR': { ...ptBR,  ...shapeshifterOverrides },
-  'ru':    { ...ru,    ...shapeshifterOverrides },
-  'fa':    { ...fa,    ...shapeshifterOverrides },
+  // MERGE-NOTE: studio — spread the matching locale entry from shapeshifterOverrides
+  // (NOT the whole map, which would inject `en`/`zh-CN`/etc. keys with object values
+  // into the Dict and leave the actual brand strings unchanged).
+  'en':    { ...en,    ...(shapeshifterOverrides.en    ?? {}) },
+  'zh-CN': { ...zhCN,  ...(shapeshifterOverrides['zh-CN'] ?? {}) },
+  'zh-TW': { ...zhTW,  ...(shapeshifterOverrides['zh-TW'] ?? {}) },
+  'pt-BR': { ...ptBR,  ...(shapeshifterOverrides['pt-BR'] ?? {}) },
+  'ru':    { ...ru,    ...(shapeshifterOverrides.ru    ?? {}) },
+  'fa':    { ...fa,    ...(shapeshifterOverrides.fa    ?? {}) },
 };
 
 const LS_KEY = 'open-design:locale';

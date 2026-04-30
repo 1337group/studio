@@ -371,9 +371,10 @@ function ExampleCard({
       >
         {html ? (
           <>
+            // MERGE-NOTE: studio — sandbox upgraded to allow-same-origin (see agents/studio/CLAUDE.md gotcha #12)
             <iframe
               title={`${skill.name} ${t('examples.previewLabel').toLowerCase()}`}
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-same-origin"
               srcDoc={buildSrcdoc(html)}
               tabIndex={-1}
             />
