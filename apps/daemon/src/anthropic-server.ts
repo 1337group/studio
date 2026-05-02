@@ -33,16 +33,16 @@ import baseLogger from './logger.js';
 
 const log = baseLogger.child({ component: 'anthropic-server' });
 
-// MERGE-NOTE: studio — was 8192 (upstream default for CLI agents), but
-// Studio's primary output is full HTML artifacts that easily exceed that cap
-// — Dunsire homepage hit the limit mid-CSS at ~19KB on disk, triggering the
-// "artifact got cut off" loop users complained about. Claude 4 supports 64K
-// output tokens; we default to 32K (safe across all Claude 4 models, leaves
-// room for thinking/usage events). Override via STUDIO_MAX_TOKENS env.
+// MERGE-NOTE: studio — Anthropic's hard model-side ceiling for Claude 4
+// output is 64000 tokens (no API call can exceed this — request 65536 and
+// you get a validation error). We default to 64000 so HTML artifacts never
+// get truncated. Override via STUDIO_MAX_TOKENS env if you need to throttle
+// (lower bound 1024). Locked 2026-05-02 after dunsire-home-9.html cut off
+// at 19KB / 8K output tokens.
 const DEFAULT_MAX_TOKENS = (() => {
   const env = Number.parseInt(process.env.STUDIO_MAX_TOKENS ?? '', 10);
-  if (Number.isFinite(env) && env >= 1024 && env <= 65536) return env;
-  return 32768;
+  if (Number.isFinite(env) && env >= 1024 && env <= 64000) return env;
+  return 64000;
 })();
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;          // Anthropic vision per-image cap
 const MAX_IMAGES_PER_REQUEST = 20;                 // safety cap; Anthropic allows up to 100
@@ -278,12 +278,30 @@ export async function streamServerSide({
     }
 
     if (!isAborted()) {
+      const stopReason = finalMessage?.stop_reason ?? null;
+      // MERGE-NOTE: studio — flag truncation as a journal warning so
+      // watch-errors.sh classifies it as MAX_TOKENS_HIT. Without this, a
+      // truncated artifact looks like a "succeeded" run from the journal's
+      // perspective and the operator only finds out when a user complains.
+      if (stopReason && stopReason !== 'end_turn' && stopReason !== 'tool_use') {
+        log.warn(
+          {
+            event: 'stop_reason_non_terminal',
+            stopReason,
+            model,
+            runId: run?.id,
+            outputTokens: usage?.output_tokens ?? null,
+            maxTokens: DEFAULT_MAX_TOKENS,
+          },
+          `agent stopped with non-terminal stop_reason="${stopReason}" — output likely truncated`,
+        );
+      }
       send('agent', {
         type: 'usage',
         usage,
         costUsd: null,
         durationMs: null,
-        stopReason: finalMessage?.stop_reason ?? null,
+        stopReason,
       });
       runs.finish(run, 'succeeded', 0, null);
     }
