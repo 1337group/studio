@@ -96,6 +96,18 @@
   box-shadow: 0 0 0 1px rgba(207, 161, 76, 0.5) inset;
 }
 
+/* Post-monorepo project chrome (AppChromeHeader.tsx). Upstream renamed the
+   project topbar wrapper from .topbar .brand-mark to .app-chrome-mark, with
+   <img src="/app-icon.svg"> instead of /logo.svg. Same skin treatment. */
+.app-chrome-mark .brand-mark-img {
+  display: none;
+}
+.app-chrome-mark {
+  background: rgb(11, 11, 13) url('/shapeshifter-knot.png') center center / 74% no-repeat;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(207, 161, 76, 0.5) inset;
+}
+
 /* Top-right avatar (project topbar) — same composition as the brand
    mark so the chrome reads as one branded surface, not stock-Open-
    Design avatar.png + ShapeShifter knot. AvatarMenu.tsx renders
