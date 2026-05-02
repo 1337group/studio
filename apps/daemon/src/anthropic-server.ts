@@ -29,6 +29,9 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync, statSync } from 'node:fs';
 import { extname, resolve as pathResolve, basename } from 'node:path';
+import baseLogger from './logger.js';
+
+const log = baseLogger.child({ component: 'anthropic-server' });
 
 const DEFAULT_MAX_TOKENS = 8192;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;          // Anthropic vision per-image cap
@@ -247,7 +250,10 @@ export async function streamServerSide({
 
     stream.on('error', (err) => {
       if (isAborted()) return;
-      send('error', { message: err && err.message ? err.message : String(err) });
+      const msg = err && err.message ? err.message : String(err);
+      // Surface to the daemon journal so watch-errors.sh classifies it.
+      log.error({ event: 'sdk_stream_error', model, runId: run?.id, err: msg }, 'anthropic SDK stream error');
+      send('error', { message: msg });
     });
 
     const finalMessage = await stream.finalMessage();
@@ -273,7 +279,9 @@ export async function streamServerSide({
     }
   } catch (err) {
     if (!isAborted()) {
-      runs.fail(run, 'AGENT_FAILED', err && err.message ? err.message : String(err));
+      const msg = err && err.message ? err.message : String(err);
+      log.error({ event: 'agent_failed', model, runId: run?.id, err: msg }, 'streamServerSide threw');
+      runs.fail(run, 'AGENT_FAILED', msg);
     }
   }
 }
