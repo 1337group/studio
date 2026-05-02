@@ -2400,6 +2400,34 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     }
   });
 
+  // MERGE-NOTE: studio — SPA fallback for client-side routes.
+  // Next.js `output: 'export'` generates one shell at out/index.html. Direct
+  // GETs to deep-link routes like `/projects/<id>/files/<name>.html` 404 because
+  // the prerender doesn't include those. Browsers ALSO occasionally prefetch
+  // similar paths (link prefetch, speculation rules) which produce stray
+  // console 404s. Catch any non-API GET that didn't match a static asset and
+  // serve the SPA shell so the client router can take over. Excludes /api/*
+  // to avoid masking real API 404s, and only matches GET (mutations should
+  // never fall through). Skip if STATIC_DIR is missing (e.g. dev daemon
+  // serving from `next dev` upstream).
+  if (fs.existsSync(STATIC_DIR)) {
+    const SPA_INDEX = path.join(STATIC_DIR, 'index.html');
+    if (fs.existsSync(SPA_INDEX)) {
+      app.get('*', (req, res, next) => {
+        if (req.method !== 'GET') return next();
+        if (req.path.startsWith('/api/')) return next();
+        if (req.path.startsWith('/artifacts/')) return next();
+        if (req.path.startsWith('/frames/')) return next();
+        // Don't shadow real binary asset 404s with HTML — looks worse than
+        // a clean 404 (browser will complain about MIME type).
+        if (/\.(png|jpe?g|gif|webp|svg|avif|bmp|mp4|mp3|wav|pdf|zip|woff2?|ttf|eot|otf)(\?|$)/i.test(req.path)) {
+          return next();
+        }
+        res.sendFile(SPA_INDEX);
+      });
+    }
+  }
+
   // Wait for `listen` to bind so callers always see the resolved URL —
   // critical when port=0 (ephemeral port) and when the embedding sidecar
   // needs to advertise the port to a parent process before any request

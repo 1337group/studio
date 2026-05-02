@@ -88,12 +88,52 @@ function extractCookieValue(setCookieLine, name) {
   }
 }
 
+// In-flight refresh coalescer: when the access JWT expires and N concurrent
+// requests fire from the browser, they ALL find the same expired token and
+// would each call /api/auth/refresh with the same refresh cookie. The
+// upstream rotates the refresh token on first use (one-time-use semantics),
+// so request #2..N would receive the now-stale token and 401, killing
+// whatever the user was doing (most painfully: POST /api/runs starting a
+// chat). Coalesce by refreshRaw key so all concurrent requests share one
+// upstream call and all get the same new payload + Set-Cookie headers.
+// Map value is { promise, setCookies } — the promise resolves to the
+// verified payload (or null on failure); setCookies is captured so each
+// concurrent request can mirror them onto its own response.
+const inflightRefresh = new Map();
+
 // Server-side silent refresh. Called when the access JWT is missing or
 // expired but the browser still has a valid refresh cookie. Returns the
 // new access JWT (already verified) on success, or null on any failure.
 // Forwards Set-Cookie headers to the response so the browser updates its
 // cookies before the next request lands.
 async function trySilentRefresh({ refreshRaw, res, secret, algorithms, cookieName }) {
+  // Coalesce: if a refresh for this refreshRaw is already in flight, wait
+  // for it instead of starting a parallel one.
+  const existing = inflightRefresh.get(refreshRaw);
+  if (existing) {
+    const result = await existing.promise;
+    // Mirror Set-Cookie headers onto THIS response (the original setHeader
+    // happened on the leader's res; coalesced followers need their own).
+    if (result && existing.setCookies && existing.setCookies.length) {
+      res.setHeader('Set-Cookie', existing.setCookies);
+    }
+    return result;
+  }
+
+  const entry = { setCookies: null, promise: null };
+  entry.promise = doSilentRefresh({ refreshRaw, res, secret, algorithms, cookieName, entry });
+  inflightRefresh.set(refreshRaw, entry);
+  try {
+    return await entry.promise;
+  } finally {
+    // Brief settle: keep the entry around for ~2s so any lagging concurrent
+    // request still gets the coalesced result. Then drop so next refresh
+    // attempt isn't poisoned by a stale entry.
+    setTimeout(() => inflightRefresh.delete(refreshRaw), 2000);
+  }
+}
+
+async function doSilentRefresh({ refreshRaw, res, secret, algorithms, cookieName, entry }) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
   try {
@@ -132,6 +172,9 @@ async function trySilentRefresh({ refreshRaw, res, secret, algorithms, cookieNam
     if (setCookies.length) {
       // Express: res.setHeader('Set-Cookie', array) emits one header per item.
       res.setHeader('Set-Cookie', setCookies);
+      // Stash on coalescer entry so concurrent followers can mirror these
+      // onto their own responses (see trySilentRefresh).
+      if (entry) entry.setCookies = setCookies;
     }
 
     const newAccess = setCookies

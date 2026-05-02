@@ -6,6 +6,9 @@ import '../src/index.css';
 // index.css so the cascade puts ShapeShifter rebinds last (last rule wins).
 import '../src/lib/goa/globals.css';
 import '../src/styles/shapeshifter-skin.css';
+// MERGE-NOTE: studio — universal AskGoa FAB mounts here so the agent
+// surface picker is reachable on every page. Wrapper is in src/lib/goa.
+import { AskGoaMount } from '../src/lib/goa/AskGoaMount';
 
 export const metadata: Metadata = {
   // MERGE-NOTE: studio — brand title
@@ -38,7 +41,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body suppressHydrationWarning>
-        <I18nProvider>{children}</I18nProvider>
+        <I18nProvider>
+          {children}
+          <AskGoaMount />
+        </I18nProvider>
       </body>
     </html>
   );
