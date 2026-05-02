@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { LOCALE_LABEL, LOCALES, useI18n } from '../i18n';
 import type { Locale } from '../i18n';
@@ -15,7 +15,7 @@ import {
   MIN_MAX_TOKENS,
   modelMaxTokensDefault,
 } from '../state/maxTokens';
-import type { AgentInfo, AppConfig, AppVersionInfo, ExecMode } from '../types';
+import type { AgentInfo, AppConfig, AppTheme, AppVersionInfo, ExecMode } from '../types';
 import { MEDIA_PROVIDERS } from '../media/models';
 import type { MediaProvider } from '../media/models';
 
@@ -49,9 +49,23 @@ export function SettingsDialog({
 }: Props) {
   const { t, locale, setLocale } = useI18n();
   const [cfg, setCfg] = useState<AppConfig>(initial);
+
+  // Revert the live theme preview when the dialog closes without saving.
+  // On Save, App's useLayoutEffect fires after unmount and applies the new
+  // saved theme, so this cleanup is effectively a no-op in that path.
+  useLayoutEffect(() => {
+    const saved = initial.theme ?? 'system';
+    return () => {
+      if (saved === 'system') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    };
+  }, [initial.theme]);
   const [showApiKey, setShowApiKey] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState<'execution' | 'media' | 'language' | 'about'>('execution');
+  const [activeSection, setActiveSection] = useState<'execution' | 'media' | 'language' | 'appearance' | 'about'>('execution');
   const [languageMenuRect, setLanguageMenuRect] = useState<DOMRect | null>(null);
   const languageRef = useRef<HTMLDivElement | null>(null);
 
@@ -158,6 +172,17 @@ export function SettingsDialog({
               <span>
                 <strong>{t('settings.language')}</strong>
                 <small>{t('settings.languageHint')}</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`settings-nav-item${activeSection === 'appearance' ? ' active' : ''}`}
+              onClick={() => setActiveSection('appearance')}
+            >
+              <Icon name="sun-moon" size={18} />
+              <span>
+                <strong>{t('settings.appearance')}</strong>
+                <small>{t('settings.appearanceHint')}</small>
               </span>
             </button>
             <button
@@ -549,6 +574,10 @@ export function SettingsDialog({
           </section>
           ) : null}
 
+          {activeSection === 'appearance' ? (
+            <AppearanceSection cfg={cfg} setCfg={setCfg} />
+          ) : null}
+
           {activeSection === 'about' ? (
             <section className="settings-section">
               <div className="section-head">
@@ -706,6 +735,57 @@ function MediaProvidersSection({
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+const THEMES: Array<{ value: AppTheme; labelKey: 'settings.themeSystem' | 'settings.themeLight' | 'settings.themeDark' }> = [
+  { value: 'system', labelKey: 'settings.themeSystem' },
+  { value: 'light', labelKey: 'settings.themeLight' },
+  { value: 'dark', labelKey: 'settings.themeDark' },
+];
+
+function AppearanceSection({
+  cfg,
+  setCfg,
+}: {
+  cfg: AppConfig;
+  setCfg: Dispatch<SetStateAction<AppConfig>>;
+}) {
+  const { t } = useI18n();
+  const current = cfg.theme ?? 'system';
+
+  // Apply the draft theme immediately so the user sees a live preview
+  // before hitting Save. SettingsDialog's cleanup reverts this on cancel.
+  useLayoutEffect(() => {
+    if (current === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', current);
+    }
+  }, [current]);
+
+  return (
+    <section className="settings-section">
+      <div className="section-head">
+        <div>
+          <h3>{t('settings.appearance')}</h3>
+          <p className="hint">{t('settings.appearanceHint')}</p>
+        </div>
+      </div>
+      <div className="seg-control" role="group" aria-label={t('settings.appearance')} style={{ '--seg-cols': THEMES.length } as React.CSSProperties}>
+        {THEMES.map(({ value, labelKey }) => (
+          <button
+            key={value}
+            type="button"
+            className={'seg-btn' + (current === value ? ' active' : '')}
+            aria-pressed={current === value}
+            onClick={() => setCfg((c) => ({ ...c, theme: value }))}
+          >
+            <span className="seg-title">{t(labelKey)}</span>
+          </button>
+        ))}
       </div>
     </section>
   );
