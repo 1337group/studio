@@ -2016,6 +2016,15 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
         cwd,
         run,
         runs: design.runs,
+        // MERGE-NOTE: studio — pass instruction prompt as Anthropic system
+        // param + structured history as proper messages array. Kills the
+        // "## user / ## assistant" hallucination from flat transcript.
+        instructionPrompt,
+        messageHistory: Array.isArray(chatBody.messageHistory) ? chatBody.messageHistory : null,
+        userMessage: typeof message === 'string' ? message : '',
+        attachmentHint,
+        commentHint,
+        cwdHint,
       });
       return;
     }

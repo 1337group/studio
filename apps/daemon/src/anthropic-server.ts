@@ -27,11 +27,121 @@
 // them — it just consumes the typed stream.
 
 import Anthropic from '@anthropic-ai/sdk';
-import { readFileSync, statSync } from 'node:fs';
-import { extname, resolve as pathResolve, basename } from 'node:path';
+import { readFileSync, statSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { extname, resolve as pathResolve, basename, dirname, relative as pathRelative } from 'node:path';
 import baseLogger from './logger.js';
 
 const log = baseLogger.child({ component: 'anthropic-server' });
+
+// MERGE-NOTE: studio — Anthropic tool definitions for filesystem ops the
+// model can actually invoke. Without these the model would say "Use the Edit
+// tool" and lie about doing it (no tool plumbing → hallucination). Each
+// tool is sandboxed to the project's cwd via resolveSafe.
+const TOOL_DEFS = [
+  {
+    name: 'read_file',
+    description: 'Read the contents of a file in the current project. Path must be relative to the project root.',
+    input_schema: {
+      type: 'object' as const,
+      properties: { path: { type: 'string', description: 'Project-relative path' } },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'write_file',
+    description: 'Write (create or overwrite) a file in the current project. Path must be relative to the project root. Use for new files OR full rewrites of existing files.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Project-relative path' },
+        content: { type: 'string', description: 'Full file content' },
+      },
+      required: ['path', 'content'],
+    },
+  },
+  {
+    name: 'edit_file',
+    description: 'Surgical edit of an existing file: replace the FIRST exact match of old_string with new_string. Fails if old_string is not found or appears more than once. Use for targeted edits where you do not want to rewrite the whole file.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Project-relative path' },
+        old_string: { type: 'string', description: 'Exact text to find (must appear exactly once)' },
+        new_string: { type: 'string', description: 'Replacement text' },
+      },
+      required: ['path', 'old_string', 'new_string'],
+    },
+  },
+  {
+    name: 'list_files',
+    description: 'List files in the current project (recursive). Use to discover what files already exist before writing.',
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+];
+
+function resolveSafe(cwd, relPath) {
+  if (typeof relPath !== 'string' || !relPath.length) throw new Error('path required');
+  if (relPath.includes('\0') || relPath.startsWith('/') || /^[A-Za-z]:/.test(relPath)) {
+    throw new Error('absolute paths not allowed');
+  }
+  const abs = pathResolve(cwd, relPath);
+  if (abs !== cwd && !abs.startsWith(cwd + '/')) {
+    throw new Error('path escapes project directory');
+  }
+  return abs;
+}
+
+function listProjectFilesRecursive(cwd, base = cwd, acc = []) {
+  const fs = require('node:fs');
+  for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const full = pathResolve(base, entry.name);
+    if (entry.isDirectory()) {
+      listProjectFilesRecursive(cwd, full, acc);
+    } else {
+      acc.push(pathRelative(cwd, full));
+    }
+  }
+  return acc;
+}
+
+function executeToolCall(toolName, input, cwd) {
+  if (!cwd) return { error: 'no project cwd available — cannot use filesystem tools' };
+  try {
+    switch (toolName) {
+      case 'read_file': {
+        const p = resolveSafe(cwd, input?.path);
+        const text = readFileSync(p, 'utf8');
+        return { content: text.length > 200000 ? text.slice(0, 200000) + '\n…[truncated at 200KB]' : text };
+      }
+      case 'write_file': {
+        const p = resolveSafe(cwd, input?.path);
+        if (typeof input?.content !== 'string') return { error: 'content must be a string' };
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(p, input.content, 'utf8');
+        return { ok: true, bytes: input.content.length, path: input.path };
+      }
+      case 'edit_file': {
+        const p = resolveSafe(cwd, input?.path);
+        if (!existsSync(p)) return { error: `file not found: ${input.path}` };
+        const cur = readFileSync(p, 'utf8');
+        const occ = cur.split(input.old_string).length - 1;
+        if (occ === 0) return { error: 'old_string not found in file' };
+        if (occ > 1) return { error: `old_string matched ${occ} times — must be unique. Add more context.` };
+        const next = cur.replace(input.old_string, input.new_string);
+        writeFileSync(p, next, 'utf8');
+        return { ok: true, oldBytes: cur.length, newBytes: next.length, path: input.path };
+      }
+      case 'list_files': {
+        return { files: listProjectFilesRecursive(cwd) };
+      }
+      default:
+        return { error: `unknown tool: ${toolName}` };
+    }
+  } catch (err) {
+    return { error: err && err.message ? err.message : String(err) };
+  }
+}
 
 // MERGE-NOTE: studio — Anthropic's hard model-side ceiling for Claude 4
 // output is 64000 tokens (no API call can exceed this — request 65536 and
@@ -188,13 +298,23 @@ function renderTextInlines(textInlines) {
  */
 export async function streamServerSide({
   def,
-  composed,
+  composed,            // legacy single-string fallback
   safeModel,
   safeImages,
   safeAttachments,
   cwd,
   run,
   runs,
+  // MERGE-NOTE: studio — structured-conversation params (preferred path).
+  // When messageHistory is supplied, we ignore `composed` and build a proper
+  // Anthropic messages array. system prompt goes to Anthropic's `system`
+  // parameter (not crammed into a user message).
+  instructionPrompt,
+  messageHistory,
+  userMessage,
+  attachmentHint,
+  commentHint,
+  cwdHint,
 }) {
   // Bridge to the SSE emitter API the rest of the daemon uses.
   const send = (event, data) => runs.emit(run, event, data);
@@ -227,18 +347,9 @@ export async function streamServerSide({
     send('agent', { type: 'text_delta', delta: note });
   }
 
-  const promptText = composed + renderTextInlines(textInlines);
-
-  // Anthropic content array: text first, then images. The CLI's `@<path>`
-  // tokens already in `composed` stay as harmless text references — the
-  // image blocks below are what the model actually sees.
-  const userContent =
-    imageBlocks.length === 0
-      ? promptText
-      : [{ type: 'text', text: promptText }, ...imageBlocks];
-
-  let usage = null;
-
+  // Build proper Anthropic messages array. Two paths:
+  //   - structured (preferred): messageHistory from frontend → role-tagged turns
+  //   - legacy: single user message containing flattened `composed` transcript
   let api;
   try {
     api = client();
@@ -246,35 +357,129 @@ export async function streamServerSide({
     return runs.fail(run, 'AGENT_UNAVAILABLE', err && err.message ? err.message : String(err));
   }
 
+  // System prompt — Anthropic API channel, NOT crammed into a user message.
+  const systemPromptText = (() => {
+    const parts = [];
+    if (typeof instructionPrompt === 'string' && instructionPrompt.trim()) parts.push(instructionPrompt);
+    if (typeof cwdHint === 'string' && cwdHint.trim()) parts.push(cwdHint);
+    if (textInlines.length > 0) parts.push(renderTextInlines(textInlines));
+    return parts.join('\n\n').trim();
+  })();
+
+  // Latest user turn: text + images + attachment hints. Build content blocks.
+  const latestUserText = (() => {
+    if (typeof userMessage === 'string' && userMessage.trim()) {
+      return [
+        userMessage,
+        typeof attachmentHint === 'string' ? attachmentHint : '',
+        typeof commentHint === 'string' ? commentHint : '',
+      ].join('').trim();
+    }
+    return composed; // fallback to legacy composed if frontend didn't send userMessage
+  })();
+  const latestUserContent = imageBlocks.length === 0
+    ? latestUserText
+    : [{ type: 'text', text: latestUserText || '(see attachments)' }, ...imageBlocks];
+
+  // Assemble messages array. If frontend sent structured history, use it
+  // (drop the trailing user turn it includes since latestUserContent is
+  // built fresh with images). Otherwise fall back to single-message legacy.
+  let messages;
+  if (Array.isArray(messageHistory) && messageHistory.length > 0) {
+    // Drop the final entry if it's a user turn (we'll append latestUserContent).
+    const histCopy = [...messageHistory];
+    if (histCopy.length > 0 && histCopy[histCopy.length - 1].role === 'user') {
+      histCopy.pop();
+    }
+    messages = [
+      ...histCopy.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user', content: latestUserContent },
+    ];
+  } else {
+    messages = [{ role: 'user', content: latestUserContent }];
+  }
+
+  // Tool-use loop: stream → if model wants a tool call, execute, append
+  // tool_result, stream next turn. Continue until stop_reason='end_turn'.
+  // Hard cap at 12 iterations to prevent infinite loops.
+  let usage = null;
+  let stopReason = null;
+  const MAX_TOOL_ITERATIONS = 12;
+
   try {
-    const stream = api.messages.stream({
-      model,
-      max_tokens: DEFAULT_MAX_TOKENS,
-      messages: [{ role: 'user', content: userContent }],
-    });
-
-    stream.on('text', (delta) => {
-      if (isAborted()) return;
-      send('agent', { type: 'text_delta', delta });
-    });
-
-    stream.on('error', (err) => {
-      if (isAborted()) return;
-      const msg = err && err.message ? err.message : String(err);
-      // Surface to the daemon journal so watch-errors.sh classifies it.
-      log.error({ event: 'sdk_stream_error', model, runId: run?.id, err: msg }, 'anthropic SDK stream error');
-      send('error', { message: msg });
-    });
-
-    const finalMessage = await stream.finalMessage();
-
-    if (finalMessage && finalMessage.usage) {
-      usage = {
-        input_tokens: finalMessage.usage.input_tokens ?? null,
-        output_tokens: finalMessage.usage.output_tokens ?? null,
-        cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? null,
-        cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? null,
+    for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+      if (isAborted()) break;
+      const streamArgs = {
+        model,
+        max_tokens: DEFAULT_MAX_TOKENS,
+        messages,
+        tools: TOOL_DEFS,
       };
+      if (systemPromptText) streamArgs.system = systemPromptText;
+
+      const stream = api.messages.stream(streamArgs);
+
+      stream.on('text', (delta) => {
+        if (isAborted()) return;
+        send('agent', { type: 'text_delta', delta });
+      });
+      stream.on('error', (err) => {
+        if (isAborted()) return;
+        const msg = err && err.message ? err.message : String(err);
+        log.error({ event: 'sdk_stream_error', model, runId: run?.id, err: msg, iter }, 'anthropic SDK stream error');
+        send('error', { message: msg });
+      });
+
+      const finalMessage = await stream.finalMessage();
+      if (!finalMessage) break;
+
+      // Surface tool_use blocks to the frontend AND collect for execution.
+      const toolUses = [];
+      for (const block of finalMessage.content || []) {
+        if (block?.type === 'tool_use') {
+          toolUses.push(block);
+          send('agent', {
+            type: 'tool_use',
+            id: block.id,
+            name: block.name,
+            input: block.input,
+          });
+        }
+      }
+
+      // Update usage with the LATEST iteration (cumulative-ish; final wins).
+      if (finalMessage.usage) {
+        usage = {
+          input_tokens: finalMessage.usage.input_tokens ?? null,
+          output_tokens: finalMessage.usage.output_tokens ?? null,
+          cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? null,
+          cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? null,
+        };
+      }
+      stopReason = finalMessage.stop_reason ?? null;
+
+      // If the model didn't ask for a tool, we're done.
+      if (toolUses.length === 0 || stopReason !== 'tool_use') break;
+
+      // Append assistant turn (with tool_use blocks) + tool_result turn.
+      messages.push({ role: 'assistant', content: finalMessage.content });
+      const toolResults = toolUses.map((t) => {
+        const result = executeToolCall(t.name, t.input || {}, cwd);
+        send('agent', {
+          type: 'tool_result',
+          tool_use_id: t.id,
+          name: t.name,
+          isError: Boolean(result?.error),
+          output: typeof result === 'string' ? result : JSON.stringify(result),
+        });
+        return {
+          type: 'tool_result',
+          tool_use_id: t.id,
+          is_error: Boolean(result?.error),
+          content: typeof result === 'string' ? result : JSON.stringify(result),
+        };
+      });
+      messages.push({ role: 'user', content: toolResults });
     }
 
     if (!isAborted()) {

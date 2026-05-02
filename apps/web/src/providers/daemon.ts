@@ -94,15 +94,26 @@ export async function streamViaDaemon({
   onRunStatus,
   onRunEventId,
 }: DaemonStreamOptions): Promise<void> {
-  // Local CLIs are single-turn print-mode programs, so we collapse the whole
-  // chat into one string. If this becomes too noisy for long histories, the
-  // fix is to only include the final user turn.
+  // Local CLIs are single-turn print-mode programs, so they get a collapsed
+  // transcript. SDK-direct agents (anthropic-server) get the structured
+  // history via a new `messageHistory` field — daemon will hand it to the
+  // Anthropic API as a proper messages array, killing the "## user / ##
+  // assistant" hallucination loop the flat transcript caused. (Issue:
+  // model echoed the prompt format and fabricated future turns.)
   const transcript = history
     .map((m) => `## ${m.role}\n${m.content.trim()}`)
     .join('\n\n');
-  const request: ChatRequest = {
+  const messageHistory = history
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: (m.content ?? '').trim(),
+    }))
+    .filter((m) => m.content.length > 0);
+  const request: ChatRequest & { messageHistory?: typeof messageHistory } = {
     agentId,
     message: transcript,
+    messageHistory,
     projectId: projectId ?? null,
     conversationId: conversationId ?? null,
     assistantMessageId: assistantMessageId ?? null,
