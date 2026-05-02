@@ -33,7 +33,17 @@ import baseLogger from './logger.js';
 
 const log = baseLogger.child({ component: 'anthropic-server' });
 
-const DEFAULT_MAX_TOKENS = 8192;
+// MERGE-NOTE: studio — was 8192 (upstream default for CLI agents), but
+// Studio's primary output is full HTML artifacts that easily exceed that cap
+// — Dunsire homepage hit the limit mid-CSS at ~19KB on disk, triggering the
+// "artifact got cut off" loop users complained about. Claude 4 supports 64K
+// output tokens; we default to 32K (safe across all Claude 4 models, leaves
+// room for thinking/usage events). Override via STUDIO_MAX_TOKENS env.
+const DEFAULT_MAX_TOKENS = (() => {
+  const env = Number.parseInt(process.env.STUDIO_MAX_TOKENS ?? '', 10);
+  if (Number.isFinite(env) && env >= 1024 && env <= 65536) return env;
+  return 32768;
+})();
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;          // Anthropic vision per-image cap
 const MAX_IMAGES_PER_REQUEST = 20;                 // safety cap; Anthropic allows up to 100
 const MAX_TEXT_INLINE_BYTES = 256 * 1024;          // 256KB per text attachment inlined into prompt
