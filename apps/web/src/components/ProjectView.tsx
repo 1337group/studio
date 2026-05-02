@@ -800,7 +800,30 @@ export function ProjectView({
                   },
             );
           } else if (ev.type === 'artifact:end') {
-            setArtifact((prev) => (prev ? { ...prev, html: ev.fullContent } : null));
+            // MERGE-NOTE: studio — persist EACH completed artifact as soon
+            // as its </artifact> closes, not just the last one at run end.
+            // The model occasionally emits artifact A (complete) followed by
+            // artifact B (truncated/incomplete). Without this, B overwrites A
+            // in single-slot state and persistArtifact at onDone saves
+            // nothing useful. Now A is saved the moment it closes, and B's
+            // partial content can be discarded silently.
+            const completed = {
+              identifier: ev.identifier,
+              artifactType: undefined as string | undefined,
+              title: '',
+              html: ev.fullContent,
+            };
+            setArtifact((prev) => {
+              if (prev) {
+                completed.artifactType = prev.artifactType;
+                completed.title = prev.title;
+                return { ...prev, html: ev.fullContent };
+              }
+              return completed as Artifact;
+            });
+            // Fire-and-forget persist; persistArtifact dedupes via
+            // savedArtifactRef so a later onDone re-call is a no-op.
+            void persistArtifact(completed as Artifact);
           }
         }
       };
