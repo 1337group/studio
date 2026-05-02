@@ -42,13 +42,35 @@ APP_DIR="/opt/platform-apps/studio"
 
 SKIP_BACKUP=false
 SKIP_BUILD=false
+FORCE=false
 for arg in "$@"; do
   case "$arg" in
     --skip-backup) SKIP_BACKUP=true ;;
     --skip-build)  SKIP_BUILD=true ;;
+    --force)       FORCE=true ;;
     *) echo "unknown flag: $arg" >&2; exit 64 ;;
   esac
 done
+
+# Active-run guard: a systemctl restart severs every in-flight SSE stream
+# (every chat tab gets a "network error"). Bail out if any /api/runs is
+# active, unless --force is set. Wait up to 90s for streams to drain.
+# Bypass for the watch-loop's own deploys is via --force.
+if ! $FORCE; then
+  for attempt in 1 2 3 4 5 6 7 8 9; do
+    active_runs=$("$SSH" hive "sudo journalctl -u platform-app@studio --since '60 seconds ago' -o cat 2>/dev/null | grep -c '\"url\":\"/api/runs\"' || true" 2>/dev/null | tr -d '[:space:]')
+    if [[ "${active_runs:-0}" == "0" ]]; then
+      break
+    fi
+    if [[ $attempt -ge 9 ]]; then
+      echo "✗ Active runs in last 60s: ${active_runs}. Refusing to deploy mid-stream." >&2
+      echo "  Re-run with --force to deploy anyway, or wait for the user to finish." >&2
+      exit 1
+    fi
+    echo "→ ${active_runs} active run(s) in last 60s; waiting 10s before retry (attempt ${attempt}/9)..."
+    sleep 10
+  done
+fi
 
 if ! $SKIP_BACKUP; then
   echo "→ [1/8] Backing up .od/ on hive (use --skip-backup to bypass)"
