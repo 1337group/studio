@@ -483,11 +483,16 @@ export async function streamServerSide({
     }
 
     if (!isAborted()) {
-      const stopReason = finalMessage?.stop_reason ?? null;
-      // MERGE-NOTE: studio — flag truncation as a journal warning so
-      // watch-errors.sh classifies it as MAX_TOKENS_HIT. Without this, a
-      // truncated artifact looks like a "succeeded" run from the journal's
-      // perspective and the operator only finds out when a user complains.
+      // MERGE-NOTE: studio — `stopReason` is the outer-scope let from line ~406,
+      // assigned inside the loop on each iteration. Earlier code re-declared a
+      // local `const stopReason = finalMessage?.stop_reason` here, but
+      // `finalMessage` is block-scoped to the for-loop body (line ~433) and
+      // out-of-scope after `break`, throwing ReferenceError → AGENT_FAILED →
+      // red error pill in chat panel. Use the outer.
+      // Flag truncation as a journal warning so watch-errors.sh classifies it
+      // as MAX_TOKENS_HIT. Without this, a truncated artifact looks like a
+      // "succeeded" run from the journal's perspective and the operator only
+      // finds out when a user complains.
       if (stopReason && stopReason !== 'end_turn' && stopReason !== 'tool_use') {
         log.warn(
           {
