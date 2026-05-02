@@ -113,6 +113,28 @@ function parseLineSeparatedModels(stdout) {
 }
 
 export const AGENT_DEFS = [
+  // MERGE-NOTE: studio — ShapeShifter addition. Server-side Anthropic SDK agent.
+  // Bypasses the child_process.spawn path entirely — server.ts detects
+  // `bin === null` + `streamFormat === 'sdk-direct'` and routes /api/chat
+  // through anthropic-server.ts using the SDK with `process.env.ANTHROPIC_API_KEY`.
+  // Available iff that env is set. This is the ONLY working agent path on Hive
+  // (no CLI bins installed).
+  {
+    id: 'anthropic-server',
+    name: 'Anthropic API (server)',
+    bin: null,
+    serverReady: () => Boolean(process.env.ANTHROPIC_API_KEY),
+    fallbackModels: [
+      DEFAULT_MODEL_OPTION,
+      { id: 'claude-opus-4-7', label: 'claude-opus-4-7 (latest)' },
+      { id: 'claude-sonnet-4-6', label: 'claude-sonnet-4-6 (latest)' },
+      { id: 'claude-haiku-4-5-20251001', label: 'claude-haiku-4-5' },
+      { id: 'claude-opus-4-5', label: 'claude-opus-4-5' },
+      { id: 'claude-sonnet-4-5', label: 'claude-sonnet-4-5' },
+    ],
+    buildArgs: () => [],
+    streamFormat: 'sdk-direct',
+  },
   {
     id: 'claude',
     name: 'Claude Code',
@@ -593,6 +615,20 @@ async function fetchModels(def, resolvedBin) {
 }
 
 async function probe(def) {
+  // MERGE-NOTE: studio — server-side agents (bin: null) can't be path-resolved.
+  // Honor `def.serverReady()` (e.g. anthropic-server returns true when
+  // ANTHROPIC_API_KEY is in env) so they show as available in the picker.
+  // Without this, our SDK-direct agent always reports unavailable and the UI
+  // hides it, leaving users with only CLI agents that aren't installed on Hive.
+  if (def.bin === null) {
+    const ready = typeof def.serverReady === 'function' ? Boolean(def.serverReady()) : false;
+    return {
+      ...stripFns(def),
+      models: def.fallbackModels ?? [DEFAULT_MODEL_OPTION],
+      available: ready,
+    };
+  }
+
   const resolved = resolveAgentExecutable(def);
   if (!resolved) {
     return {
@@ -651,6 +687,8 @@ function stripFns(def) {
     helpArgs,
     capabilityFlags,
     fallbackBins,
+    // MERGE-NOTE: studio — strip serverReady (closure on process.env, not transportable)
+    serverReady,
     ...rest
   } = def;
   return rest;

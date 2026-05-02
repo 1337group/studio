@@ -386,7 +386,7 @@ function ExampleCard({
           <>
             <iframe
               title={`${skill.name} ${t('examples.previewLabel').toLowerCase()}`}
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-same-origin"
               srcDoc={buildSrcdoc(html)}
               tabIndex={-1}
             />

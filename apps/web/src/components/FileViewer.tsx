@@ -475,7 +475,7 @@ function ReactComponentViewer({
           <iframe
             data-testid="react-component-preview-frame"
             title={file.name}
-            sandbox="allow-scripts"
+            sandbox="allow-scripts allow-same-origin"
             srcDoc={srcDoc}
           />
         ) : (
@@ -1392,7 +1392,7 @@ function HtmlViewer({
                 ref={iframeRef}
                 data-testid="artifact-preview-frame"
                 title={file.name}
-                sandbox="allow-scripts"
+                sandbox="allow-scripts allow-same-origin"
                 srcDoc={srcDoc}
               />
             </div>
@@ -1448,7 +1448,7 @@ function HtmlViewer({
           >
             <Icon name="close" size={13} /> {t('fileViewer.exitPresentation')}
           </button>
-          <iframe title="present" sandbox="allow-scripts" srcDoc={srcDoc} />
+          <iframe title="present" sandbox="allow-scripts allow-same-origin" srcDoc={srcDoc} />
         </div>
       ) : null}
       {deployModalOpen ? (

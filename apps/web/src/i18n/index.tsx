@@ -22,25 +22,31 @@ import { zhTW } from './locales/zh-TW';
 import { pl } from './locales/pl';
 import { hu } from './locales/hu';
 import { LOCALES, type Dict, type Locale } from './types';
+// MERGE-NOTE: studio — ShapeShifter brand strings overlay
+import { shapeshifterOverrides } from './shapeshifter-overrides';
 
 export { LOCALES, LOCALE_LABEL } from './types';
 export type { Locale } from './types';
 
 type DictKey = keyof Dict;
 
+// MERGE-NOTE: studio — spread the matching locale entry from shapeshifterOverrides
+// (NOT the whole map, which would inject `en`/`zh-CN`/etc. keys with object values
+// into the Dict and leave the actual brand strings unchanged). Missing locales
+// fall back to upstream strings.
 const DICTS: Record<Locale, Dict> = {
-  'en': en,
-  'de': de,
-  'zh-CN': zhCN,
-  'zh-TW': zhTW,
-  'pt-BR': ptBR,
-  'es-ES': esES,
-  'ru': ru,
-  'fa': fa,
-  'ja': ja,
-  'ko': ko,
-  'pl': pl,
-  'hu': hu,
+  'en':    { ...en,    ...(shapeshifterOverrides.en    ?? {}) },
+  'de':    { ...de,    ...(shapeshifterOverrides.de    ?? {}) },
+  'zh-CN': { ...zhCN,  ...(shapeshifterOverrides['zh-CN'] ?? {}) },
+  'zh-TW': { ...zhTW,  ...(shapeshifterOverrides['zh-TW'] ?? {}) },
+  'pt-BR': { ...ptBR,  ...(shapeshifterOverrides['pt-BR'] ?? {}) },
+  'es-ES': { ...esES,  ...(shapeshifterOverrides['es-ES'] ?? {}) },
+  'ru':    { ...ru,    ...(shapeshifterOverrides.ru    ?? {}) },
+  'fa':    { ...fa,    ...(shapeshifterOverrides.fa    ?? {}) },
+  'ja':    { ...ja,    ...(shapeshifterOverrides.ja    ?? {}) },
+  'ko':    { ...ko,    ...(shapeshifterOverrides.ko    ?? {}) },
+  'pl':    { ...pl,    ...(shapeshifterOverrides.pl    ?? {}) },
+  'hu':    { ...hu,    ...(shapeshifterOverrides.hu    ?? {}) },
 };
 
 const LS_KEY = 'open-design:locale';

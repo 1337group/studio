@@ -99,7 +99,26 @@ export function App() {
       setConfig((prev) => {
         const next = { ...prev };
         if (alive) {
-          if (!next.agentId) {
+          // MERGE-NOTE: studio — Hive deployment ships a central
+          // ANTHROPIC_API_KEY in the daemon env (anthropic-server agent),
+          // so users don't need to BYOK. If our server-side agent is
+          // available, flip legacy localStorage from mode='api' (BYOK)
+          // to mode='daemon' + agentId='anthropic-server' silently. Users
+          // who explicitly picked a CLI agent (claude/codex on a workstation)
+          // keep their pick.
+          const serverAgent = agentList.find(
+            (a) => a.id === 'anthropic-server' && a.available,
+          );
+          if (serverAgent) {
+            const usingByokOrUnset =
+              next.mode === 'api' ||
+              !next.agentId ||
+              !agentList.some((a) => a.id === next.agentId && a.available);
+            if (usingByokOrUnset) {
+              next.mode = 'daemon';
+              next.agentId = 'anthropic-server';
+            }
+          } else if (!next.agentId) {
             const firstAvailable = agentList.find((a) => a.available);
             if (firstAvailable) next.agentId = firstAvailable.id;
           }

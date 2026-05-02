@@ -32,6 +32,11 @@ import { buildDocumentPreview } from './document-preview.js';
 import { lintArtifact, renderFindingsForAgent } from './lint-artifact.js';
 import { loadCraftSections } from './craft.js';
 import { generateMedia } from './media.js';
+// MERGE-NOTE: studio — ShapeShifter additions: server-side Anthropic SDK + auth shim + structured logging
+import { isServerSideAgent, streamServerSide } from './anthropic-server.js';
+import { createAuthShim } from './auth-shim.js';
+import pinoHttp from 'pino-http';
+import baseLogger from './logger.js';
 import {
   AUDIO_DURATIONS_SEC,
   AUDIO_MODELS_BY_KIND,
@@ -386,15 +391,39 @@ const projectUpload = multer({
         cb(err, '');
       }
     },
-    filename: (_req, file, cb) => {
+    filename: (req, file, cb) => {
       // multer@1 hands us latin1-decoded multipart filenames; restore the
       // original UTF-8 so the response (and the on-disk name) preserves
-      // non-ASCII characters instead of mangling them. Then run the
-      // shared sanitiser and prepend a base36 timestamp so multiple
-      // uploads with the same original name don't clobber each other.
+      // non-ASCII characters instead of mangling them.
       file.originalname = decodeMultipartFilename(file.originalname);
       const safe = sanitizeName(file.originalname);
-      cb(null, `${Date.now().toString(36)}-${safe}`);
+      // MERGE-NOTE: studio — keep the user's original filename so
+      // <img src="logo.png"> in agent-generated HTML resolves cleanly in
+      // the iframe preview. Upstream prefixed every upload with a base36
+      // timestamp ("moohkdog-logo.png") which broke relative refs.
+      // If a file already exists with that name, suffix with -1, -2, ...
+      // (idempotent: if same name + bytes coexist, they were probably
+      // re-uploaded by the user — the suffix avoids silent overwrites).
+      try {
+        const dir = path.join(PROJECTS_DIR, req.params.id);
+        let final = safe;
+        if (fs.existsSync(path.join(dir, final))) {
+          const ext = path.extname(safe);
+          const stem = ext ? safe.slice(0, -ext.length) : safe;
+          for (let i = 1; i < 1000; i++) {
+            const candidate = `${stem}-${i}${ext}`;
+            if (!fs.existsSync(path.join(dir, candidate))) {
+              final = candidate;
+              break;
+            }
+          }
+        }
+        cb(null, final);
+      } catch {
+        // Fallback to base36-timestamp prefix if anything goes wrong, so
+        // we never block the upload itself.
+        cb(null, `${Date.now().toString(36)}-${safe}`);
+      }
     },
   }),
   limits: { fileSize: 20 * 1024 * 1024 },
@@ -560,6 +589,23 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
   // build advertises --include-partial-messages) so the first /api/chat
   // hits a populated cache even if /api/agents hasn't been called yet.
   void detectAgents().catch(() => {});
+
+  // MERGE-NOTE: studio — pino-http logs every request: method, path, status,
+  // duration, plus user (when authShim has run). Pushes to Loki via pino-loki
+  // transport in logger.ts. Sits BEFORE authShim so unauthenticated requests
+  // are also logged (security observability of bouncer events).
+  app.use(pinoHttp({
+    logger: baseLogger.child({ component: 'http' }),
+    redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+  }));
+
+  // MERGE-NOTE: studio — gate every request on the shapeshifter JWT cookie
+  // before any /api/* or static routes match. Public allowlist is applied
+  // inside the shim (currently /api/health and /frames/*). Set
+  // STUDIO_AUTH=off to bypass during local dev.
+  if (process.env.STUDIO_AUTH !== 'off') {
+    app.use(createAuthShim());
+  }
 
   if (fs.existsSync(STATIC_DIR)) {
     app.use(express.static(STATIC_DIR));
@@ -1791,7 +1837,12 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
     if (typeof agentId === 'string' && agentId) run.agentId = agentId;
     const def = getAgentDef(agentId);
     if (!def) return design.runs.fail(run, 'AGENT_UNAVAILABLE', `unknown agent: ${agentId}`);
-    if (!def.bin) return design.runs.fail(run, 'AGENT_UNAVAILABLE', 'agent has no binary');
+    // MERGE-NOTE: studio — server-side agents (bin: null, streamFormat:
+    // 'sdk-direct') skip the spawn path entirely. The bin-null guard below
+    // only fires for misconfigured CLI agents.
+    if (!isServerSideAgent(def) && !def.bin) {
+      return design.runs.fail(run, 'AGENT_UNAVAILABLE', 'agent has no binary');
+    }
     const safeCommentAttachments = normalizeCommentAttachments(commentAttachments);
     if (
       (typeof message !== 'string' || !message.trim()) &&
@@ -1843,6 +1894,48 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
           }
         })
       : [];
+
+    // MERGE-NOTE: studio — auto-promote paperclip uploads into the project's
+    // Design Files folder so they're visible to the user in the file tree,
+    // referenceable by simple `<img src="<basename>">` in generated HTML
+    // (resolved by inlineRelativeAssets in the preview iframe), AND included
+    // in safeAttachments so our SDK adapter forwards them to Claude. Without
+    // this, paperclip uploads were stranded in UPLOAD_DIR, invisible to the
+    // file tree, and unresolvable by relative `<img>` refs in the preview.
+    // Idempotent: skip overwrite if same basename already exists.
+    if (cwd && safeImages.length > 0) {
+      for (const uploadPath of safeImages) {
+        try {
+          // Multer prefixes uploads with `<Date.now()>-<random6>-<safe>` so
+          // simultaneous uploads don't collide on disk. The agent doesn't
+          // know about the prefix — it'll write `<img src="shapeshifter-knot.png">`
+          // referencing the ORIGINAL filename. Strip the prefix when copying
+          // into the project so relative refs resolve in the iframe preview.
+          // If a clean name collides with an existing file, suffix with -1, -2…
+          const rawName = path.basename(uploadPath);
+          const cleanName = rawName.replace(/^\d{10,16}-[a-z0-9]{4,8}-/, '');
+          let finalName = cleanName;
+          if (fs.existsSync(path.join(cwd, finalName))) {
+            const ext = path.extname(cleanName);
+            const stem = cleanName.slice(0, -ext.length || undefined);
+            for (let i = 1; i < 100; i++) {
+              const candidate = `${stem}-${i}${ext}`;
+              if (!fs.existsSync(path.join(cwd, candidate))) {
+                finalName = candidate;
+                break;
+              }
+            }
+          }
+          fs.copyFileSync(uploadPath, path.join(cwd, finalName));
+          if (!safeAttachments.includes(finalName)) {
+            safeAttachments.push(finalName);
+          }
+        } catch {
+          // Promotion best-effort. Image still flows to agent as an
+          // image content block via safeImages → anthropic-server.ts.
+        }
+      }
+    }
 
     // Local code agents don't accept a separate "system" channel the way the
     // Messages API does — we fold the skill + design-system prompt into the
@@ -1905,6 +1998,27 @@ export async function startServer({ port = 7456, returnServer = false } = {}) {
         ? def.reasoningOptions.find((r) => r.id === reasoning)?.id ?? null
         : null;
     const agentOptions = { model: safeModel, reasoning: safeReasoning };
+
+    // MERGE-NOTE: studio — server-side Anthropic SDK dispatch BEFORE
+    // upstream's resolveAgentBin + buildArgs. For agents with bin=null +
+    // streamFormat='sdk-direct' (defined in agents.ts), short-circuit the
+    // CLI-spawn path entirely. Hive doesn't have CLI bins installed so this
+    // is the ONLY working path on prod. (Note: the Windows ENAMETOOLONG block
+    // upstream had here was removed in #258 — agent comm now standardized via
+    // stdin in agents.ts buildArgs.)
+    if (isServerSideAgent(def)) {
+      await streamServerSide({
+        def,
+        composed,
+        safeModel,
+        safeImages,
+        safeAttachments,
+        cwd,
+        run,
+        runs: design.runs,
+      });
+      return;
+    }
 
     const resolvedBin = resolveAgentBin(agentId);
 

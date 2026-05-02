@@ -184,11 +184,15 @@ export function DesignsTab({ projects, skills, designSystems, onOpen, onDelete }
                       <span>{t('designs.cardFreeform')}</span>
                     )}
                     {skill ? ` · ${skill}` : ''}
-                    {' · '}
-                    <span className={`design-card-status design-card-status-${status}`}>
-                      {statusLabel(status, t)}
-                    </span>
-                    {p.status?.updatedAt ? ` · ${relativeTime(p.status.updatedAt, t)}` : ''}
+                    {status !== 'not_started' && (
+                      <>
+                        {' · '}
+                        <span className={`design-card-status design-card-status-${status}`}>
+                          {statusLabel(status, t)}
+                        </span>
+                      </>
+                    )}
+                    {(p.status?.updatedAt ?? p.updatedAt) ? ` · ${relativeTime(p.status?.updatedAt ?? p.updatedAt, t)}` : ''}
                   </div>
                 </div>
               </div>
@@ -245,7 +249,7 @@ export function DesignsTab({ projects, skills, designSystems, onOpen, onDelete }
                           <div className="design-kanban-card-meta">
                             {ds ? <span className="ds">{ds}</span> : <span>{t('designs.cardFreeform')}</span>}
                             {skill ? ` · ${skill}` : ''}
-                            {p.status?.updatedAt ? ` · ${relativeTime(p.status.updatedAt, t)}` : ''}
+                            {(p.status?.updatedAt ?? p.updatedAt) ? ` · ${relativeTime(p.status?.updatedAt ?? p.updatedAt, t)}` : ''}
                           </div>
                         </div>
                       );
