@@ -105,6 +105,13 @@ export async function buildDeployFileSet(projectsRoot, projectId, entryName, opt
     base: entryBase,
   }));
 
+  // Inline `<style>` blocks and `style="..."` attributes can reference
+  // background images, custom fonts, and stylesheets via @import. They
+  // are resolved relative to the entry HTML, same as src/href.
+  for (const ref of extractInlineCssReferences(html)) {
+    pending.push({ ref, base: entryBase });
+  }
+
   for (const manifestRef of entry.artifactManifest?.supportingFiles ?? []) {
     pending.push({ ref: manifestRef, base: entryBase });
   }
@@ -232,14 +239,69 @@ export function extractHtmlReferences(html) {
   return refs;
 }
 
+// Character classes scope the lazy match so unclosed url(((( or
+// `@import "foo` cannot trigger O(n^2) regex backtracking on
+// attacker-controlled CSS. The tradeoff is that quoted urls
+// containing literal `)` characters must be percent-encoded; CSS
+// authors are already expected to do this in practice.
+const CSS_URL_REGEX = /url\(\s*(['"]?)([^)]*?)\1\s*\)/gi;
+const CSS_IMPORT_REGEX = /@import\s+(?:url\(\s*)?(['"])([^'"]*?)\1/gi;
+
 export function extractCssReferences(css) {
   const refs = [];
-  const urlRe = /url\(\s*(['"]?)(.*?)\1\s*\)/gi;
+  const urlRe = new RegExp(CSS_URL_REGEX.source, CSS_URL_REGEX.flags);
   let match;
   while ((match = urlRe.exec(css))) refs.push(match[2]);
-  const importRe = /@import\s+(?:url\(\s*)?(['"])(.*?)\1/gi;
+  const importRe = new RegExp(CSS_IMPORT_REGEX.source, CSS_IMPORT_REGEX.flags);
   while ((match = importRe.exec(css))) refs.push(match[2]);
   return refs;
+}
+
+// Collect url() / @import references from inline `<style>` blocks and
+// `style="..."` attributes. These bypass the external-stylesheet path
+// (link rel=stylesheet -> .css file -> extractCssReferences) but still
+// pull in real assets, e.g. background images and @font-face sources.
+//
+// Style-like text that lives inside `<script>` string literals or HTML
+// comments is intentionally skipped, mirroring how extractHtmlReferences
+// treats those raw-text regions.
+export function extractInlineCssReferences(html) {
+  const source = String(html);
+  const refs = [];
+  const skipRanges = htmlRawTextRanges(source);
+
+  const styleBlockRe = /<style\b[^<>]*>([\s\S]*?)<\/style\s*>/gi;
+  let block;
+  while ((block = styleBlockRe.exec(source))) {
+    if (isOffsetInRanges(block.index, skipRanges)) continue;
+    refs.push(...extractCssReferences(block[1]));
+  }
+
+  for (const tag of parseHtmlTags(source)) {
+    const attrs = parseHtmlAttributes(tag.attrs);
+    const style = attrs.get('style');
+    if (style) refs.push(...extractCssReferences(style));
+  }
+
+  return refs;
+}
+
+// Rewrite url() / @import references inside a CSS string so that paths
+// resolved relative to `baseDir` survive the entry-HTML being moved to
+// the deploy root. Mirrors `rewriteHtmlReference` for HTML attributes.
+// Uses the same hardened character classes as `extractCssReferences` so
+// extract and rewrite see the same set of references.
+export function rewriteCssReferences(css, baseDir) {
+  return String(css)
+    .replace(CSS_URL_REGEX, (match, quote, value) => {
+      if (!value) return match;
+      const rewritten = rewriteHtmlReference(value, baseDir);
+      return `url(${quote}${rewritten}${quote})`;
+    })
+    .replace(/(@import\s+)(['"])([^'"]*?)\2/gi, (_full, prefix, quote, value) => {
+      const rewritten = rewriteHtmlReference(value, baseDir);
+      return `${prefix}${quote}${rewritten}${quote}`;
+    });
 }
 
 export function resolveReferencedPath(raw, baseDir) {
@@ -256,8 +318,26 @@ export function resolveReferencedPath(raw, baseDir) {
 }
 
 export function rewriteEntryHtmlReferences(html, baseDir) {
-  const rawTextRanges = htmlRawTextRanges(html);
-  return String(html).replace(/<([A-Za-z][A-Za-z0-9:-]*)([^<>]*?)>/g, (tag, rawName, rawAttrs, offset) => {
+  const source = String(html);
+  // Compute raw-text ranges against the input first so the style-block
+  // pre-pass can skip `<style>...</style>` text that lives inside a
+  // `<script>` string literal or an HTML comment. Without this gate, a
+  // template like `const tpl = '<style>...url("foo")...</style>'` would
+  // get mutated, changing runtime JS behavior.
+  const inputRawTextRanges = htmlRawTextRanges(source);
+  const styleRewritten = source.replace(
+    /(<style\b[^<>]*>)([\s\S]*?)(<\/style\s*>)/gi,
+    (full, openTag, content, closeTag, offset) => {
+      if (isOffsetInRanges(offset, inputRawTextRanges)) return full;
+      return `${openTag}${rewriteCssReferences(content, baseDir)}${closeTag}`;
+    },
+  );
+  // Re-derive raw-text ranges against the post-style HTML: rewriting can
+  // shift offsets, and the tag-attribute pass below skips raw-text
+  // regions by absolute offset. Two scans are intentional, deploy is
+  // not a hot path and the cost is linear in document size.
+  const rawTextRanges = htmlRawTextRanges(styleRewritten);
+  return styleRewritten.replace(/<([A-Za-z][A-Za-z0-9:-]*)([^<>]*?)>/g, (tag, rawName, rawAttrs, offset) => {
     if (isOffsetInRanges(offset, rawTextRanges)) return tag;
     const tagName = String(rawName).toLowerCase();
     const attrs = parseHtmlAttributes(rawAttrs);
@@ -372,15 +452,22 @@ function rewriteHtmlAttributes(rawAttrs, tagName, attrs, baseDir) {
     /([^\s"'<>/=]+)(\s*=\s*)("([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g,
     (full, rawName, equals, rawValue, doubleQuoted, singleQuoted, unquoted) => {
       const name = String(rawName).toLowerCase();
-      if (name !== 'src' && name !== 'poster' && name !== 'srcset' && name !== 'href') {
+      if (
+        name !== 'src' &&
+        name !== 'poster' &&
+        name !== 'srcset' &&
+        name !== 'href' &&
+        name !== 'style'
+      ) {
         return full;
       }
       if (name === 'href' && !shouldRewriteHref) return full;
 
       const value = doubleQuoted ?? singleQuoted ?? unquoted ?? '';
-      const nextValue = name === 'srcset'
-        ? rewriteSrcset(value, baseDir)
-        : rewriteHtmlReference(value, baseDir);
+      let nextValue;
+      if (name === 'srcset') nextValue = rewriteSrcset(value, baseDir);
+      else if (name === 'style') nextValue = rewriteCssReferences(value, baseDir);
+      else nextValue = rewriteHtmlReference(value, baseDir);
       if (doubleQuoted !== undefined) return `${rawName}${equals}"${nextValue}"`;
       if (singleQuoted !== undefined) return `${rawName}${equals}'${nextValue}'`;
       return `${rawName}${equals}${nextValue}`;
