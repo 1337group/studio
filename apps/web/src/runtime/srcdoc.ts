@@ -64,6 +64,14 @@ function escapeAttr(value: string): string {
 // becomes a static, unnavigable preview. We install a same-origin
 // in-memory shim BEFORE any user script runs so those decks degrade
 // gracefully (position just doesn't persist across reloads).
+//
+// We also intercept fragment-only link clicks. Because the preview
+// iframe injects `<base href="/api/projects/.../raw/">` so relative asset
+// refs resolve to the daemon's raw endpoint, a click on `<a href="#hero">`
+// would otherwise navigate the iframe to `/api/projects/.../raw/#hero`,
+// which the daemon answers with `BAD_REQUEST: invalid file name`. We
+// preventDefault those, scroll to the target locally, and update
+// location.hash without a navigation.
 function injectSandboxShim(doc: string): string {
   const shim = `<script>(function(){
   function makeStore(){
@@ -88,6 +96,24 @@ function injectSandboxShim(doc: string): string {
   }
   tryShim('localStorage');
   tryShim('sessionStorage');
+  document.addEventListener('click', function(ev){
+    if (ev.defaultPrevented || ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+    var a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (!href || href.charAt(0) !== '#') return;
+    ev.preventDefault();
+    var id = href.length > 1 ? decodeURIComponent(href.slice(1)) : '';
+    if (id) {
+      var el = null;
+      try { el = document.getElementById(id) || document.querySelector('[name="' + id.replace(/"/g, '\\\\"') + '"]'); }
+      catch (_) {}
+      if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    try { history.replaceState(null, '', href); } catch (_) {}
+  }, true);
 })();</script>`;
   if (/<head[^>]*>/i.test(doc))
     return doc.replace(/<head[^>]*>/i, (m) => `${m}${shim}`);
